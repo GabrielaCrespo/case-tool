@@ -1,0 +1,54 @@
+# Red de seguridad para todo el repositorio. Cada subproyecto (backend/,
+# frontend/, generator/, mobile/) ya tiene su propio .gitignore con las
+# reglas específicas de su herramienta; éste cubre lo que sólo existe a
+# este nivel y actúa de respaldo si algo se escapara de los anidados.
+
+# ---------------------------------------------------------------- secretos
+# Nunca credenciales reales. Los *.example sí se versionan: son plantillas.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ------------------------------------------------------------ dependencias
+node_modules/
+
+# ---------------------------------------------------------- compilados/build
+dist/
+build/
+*.tsbuildinfo
+
+# CU07 — Maven compila el generador en generator/target/.
+target/
+
+# CU07 — Proyectos Spring Boot que la herramienta genera. Son artefactos que
+# se recrean generando otra vez desde el diagrama, no código fuente.
+backend/generated/
+
+# --------------------------------------------------------- entorno de Python
+# Entorno virtual del servicio de transcripción (CU04 por voz). Se recrea
+# con las instrucciones de speech/README.md; no es código fuente.
+/whisper-env/
+__pycache__/
+*.pyc
+
+# --------------------------------------------------------------------- logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# --------------------------------------------------------------- SO / editor
+.DS_Store
+Thumbs.db
+.idea/
+*.iml
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# -------------------------------------------------------------- cobertura
+coverage/

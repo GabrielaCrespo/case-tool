@@ -1,0 +1,345 @@
+{
+  "classes": [
+    {
+      "name": "EVALUACION_FISICA",
+      "attributes": [
+        {
+          "name": "id_evaluacion_fisica",
+          "type": null
+        },
+        {
+          "name": "fecha",
+          "type": null
+        },
+        {
+          "name": "peso",
+          "type": null
+        },
+        {
+          "name": "altura",
+          "type": null
+        },
+        {
+          "name": "objetivo",
+          "type": null
+        },
+        {
+          "name": "porcentaje_grasa",
+          "type": null
+        },
+        {
+          "name": "masa_muscular",
+          "type": null
+        },
+        {
+          "name": "flexibilidad",
+          "type": null
+        },
+        {
+          "name": "observaciones",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.45,
+        "y": 0.2
+      }
+    },
+    {
+      "name": "INSTRUCTOR",
+      "attributes": [
+        {
+          "name": "id_instructor",
+          "type": null
+        },
+        {
+          "name": "ci",
+          "type": null
+        },
+        {
+          "name": "nombres",
+          "type": null
+        },
+        {
+          "name": "apellidos",
+          "type": null
+        },
+        {
+          "name": "fecha_nacimiento",
+          "type": null
+        },
+        {
+          "name": "correo",
+          "type": null
+        },
+        {
+          "name": "password_hash",
+          "type": null
+        },
+        {
+          "name": "especialidad",
+          "type": null
+        },
+        {
+          "name": "estado",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.85,
+        "y": 0.2
+      }
+    },
+    {
+      "name": "CLIENTE",
+      "attributes": [
+        {
+          "name": "id_cliente",
+          "type": null
+        },
+        {
+          "name": "ci",
+          "type": null
+        },
+        {
+          "name": "nombres",
+          "type": null
+        },
+        {
+          "name": "apellidos",
+          "type": null
+        },
+        {
+          "name": "fecha_nacimiento",
+          "type": null
+        },
+        {
+          "name": "correo",
+          "type": null
+        },
+        {
+          "name": "password_hash",
+          "type": null
+        },
+        {
+          "name": "fecha_registro",
+          "type": null
+        },
+        {
+          "name": "altura",
+          "type": null
+        },
+        {
+          "name": "peso",
+          "type": null
+        },
+        {
+          "name": "estado",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.45,
+        "y": 0.5
+      }
+    },
+    {
+      "name": "RUTINA",
+      "attributes": [
+        {
+          "name": "id_rutina",
+          "type": null
+        },
+        {
+          "name": "nombre",
+          "type": null
+        },
+        {
+          "name": "tipo",
+          "type": null
+        },
+        {
+          "name": "fecha_inicio",
+          "type": null
+        },
+        {
+          "name": "fecha_fin",
+          "type": null
+        },
+        {
+          "name": "estado",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.75,
+        "y": 0.5
+      }
+    },
+    {
+      "name": "GRUPO_MUSCULAR",
+      "attributes": [
+        {
+          "name": "id_grupo_muscular",
+          "type": null
+        },
+        {
+          "name": "nombre",
+          "type": null
+        },
+        {
+          "name": "descripcion",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.15,
+        "y": 0.75
+      }
+    },
+    {
+      "name": "EJERCICIO",
+      "attributes": [
+        {
+          "name": "id_ejercicio",
+          "type": null
+        },
+        {
+          "name": "nombre",
+          "type": null
+        },
+        {
+          "name": "descripcion",
+          "type": null
+        },
+        {
+          "name": "beneficio",
+          "type": null
+        },
+        {
+          "name": "indicaciones",
+          "type": null
+        },
+        {
+          "name": "url_video",
+          "type": null
+        },
+        {
+          "name": "url_imagen1",
+          "type": null
+        },
+        {
+          "name": "url_imagen2",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.5,
+        "y": 0.75
+      }
+    },
+    {
+      "name": "DETALLE_RUTINA",
+      "attributes": [
+        {
+          "name": "id_detalle",
+          "type": null
+        },
+        {
+          "name": "dia_semana",
+          "type": null
+        },
+        {
+          "name": "series",
+          "type": null
+        },
+        {
+          "name": "repeticiones",
+          "type": null
+        },
+        {
+          "name": "peso",
+          "type": null
+        },
+        {
+          "name": "tiempo_descanso",
+          "type": null
+        },
+        {
+          "name": "orden",
+          "type": null
+        }
+      ],
+      "position": {
+        "x": 0.85,
+        "y": 0.75
+      }
+    },
+    {
+      "name": "EJERCICIO_GRUPO_MUSCULAR",
+      "attributes": [],
+      "position": {
+        "x": 0.45,
+        "y": 0.85
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "EVALUACION_FISICA",
+      "targetClass": "INSTRUCTOR",
+      "sourceMultiplicity": "0..*",
+      "targetMultiplicity": "1"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "EVALUACION_FISICA",
+      "targetClass": "CLIENTE",
+      "sourceMultiplicity": "0..*",
+      "targetMultiplicity": "1"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "INSTRUCTOR",
+      "targetClass": "RUTINA",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "CLIENTE",
+      "targetClass": "RUTINA",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "RUTINA",
+      "targetClass": "DETALLE_RUTINA",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "EJERCICIO",
+      "targetClass": "DETALLE_RUTINA",
+      "sourceMultiplicity": "1",
+      "targetMultiplicity": "0..*"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "GRUPO_MUSCULAR",
+      "targetClass": "EJERCICIO_GRUPO_MUSCULAR",
+      "sourceMultiplicity": "0..*",
+      "targetMultiplicity": "*..0"
+    },
+    {
+      "relationshipType": "ASSOCIATION",
+      "sourceClass": "EJERCICIO",
+      "targetClass": "EJERCICIO_GRUPO_MUSCULAR",
+      "sourceMultiplicity": "*..0",
+      "targetMultiplicity": "1"
+    }
+  ]
+}

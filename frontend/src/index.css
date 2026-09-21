@@ -1,0 +1,201 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+
+/*
+ * Sistema de diseño de la herramienta CASE.
+ *
+ * El motivo visual sale del propio objeto que edita la aplicación: la caja de
+ * clase UML, un rectángulo con borde fino dividido en compartimentos. Por eso
+ * la estructura se dibuja con filetes de 1px y no con sombras difusas.
+ */
+@theme {
+  /* Tinta: gris azulado, heredado del plano técnico. */
+  --color-ink-950: #0c1220;
+  --color-ink-900: #141d2e;
+  --color-ink-800: #1f2b40;
+  --color-ink-700: #2c3a52;
+  --color-ink-600: #445674;
+  --color-ink-500: #5a6b85;
+  --color-ink-400: #8493ab;
+  --color-ink-300: #afbbcc;
+  --color-ink-200: #cdd6e3;
+  --color-ink-100: #e2e8f1;
+  --color-ink-50: #eff2f7;
+
+  /* Acento único: se reserva para la acción principal y la selección. */
+  --color-signal-700: #3a2acb;
+  --color-signal-600: #4b3be4;
+  --color-signal-500: #6155f0;
+  --color-signal-200: #cfcbfa;
+  --color-signal-100: #e6e4fd;
+  --color-signal-50: #f2f1fe;
+
+  /* Estados. El ámbar significa «hay cambios sin guardar», nada más. */
+  --color-pending-700: #8f5c07;
+  --color-pending-600: #b97609;
+  --color-pending-100: #fbefd8;
+  --color-danger-700: #9d2739;
+  --color-danger-600: #c4344a;
+  --color-danger-100: #fadee2;
+  --color-success-700: #146c4d;
+  --color-success-600: #1b8a63;
+  --color-success-100: #d7f0e6;
+
+  /* Los seis tipos de relación UML. El color codifica información. */
+  --color-rel-association: #5a6b85;
+  --color-rel-aggregation: #0e7c86;
+  --color-rel-composition: #0b5fbf;
+  --color-rel-inheritance: #4b3be4;
+  --color-rel-realization: #8a2fa8;
+  --color-rel-dependency: #8493ab;
+
+  --font-sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius-sheet: 3px;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-ink-200);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink-50);
+    color: var(--color-ink-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Foco siempre visible: es el único indicador para quien navega con teclado. */
+  :focus-visible {
+    outline: 2px solid var(--color-signal-600);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-signal-100);
+  }
+}
+
+@layer components {
+  /* Filete: el borde que construye los compartimentos de toda la interfaz. */
+  .rule-b {
+    border-bottom: 1px solid var(--color-ink-200);
+  }
+
+  .rule-t {
+    border-top: 1px solid var(--color-ink-200);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-300) transparent;
+  }
+}
+
+/* --------------------------------------------------------------- React Flow */
+
+.react-flow__attribution {
+  display: none;
+}
+
+.react-flow__node {
+  font-family: var(--font-sans);
+}
+
+/* Los conectores sólo aparecen cuando se puede dibujar una relación. */
+.react-flow__handle {
+  width: 9px;
+  height: 9px;
+  border-radius: 1px;
+  border: 1px solid var(--color-sheet, #fff);
+  background: var(--color-signal-600);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.uml-canvas--connecting .react-flow__handle,
+.react-flow__node:hover .react-flow__handle,
+.react-flow__node.selected .react-flow__handle {
+  opacity: 1;
+}
+
+/*
+ * Cursor según la herramienta activa.
+ *
+ * React Flow fija el cursor en sus propios elementos —`grab` en el fondo,
+ * `grab` o `pointer` en los nodos—, así que declararlo en el contenedor no
+ * sirve de nada: hay que ponerlo en los mismos elementos. El gesto tiene que
+ * anunciarse antes de hacerlo, que es lo que evita el clic a ciegas.
+ */
+.uml-canvas--placing .react-flow__pane,
+.uml-canvas--placing .react-flow__pane.draggable,
+.uml-canvas--placing .react-flow__node {
+  cursor: copy;
+}
+
+.uml-canvas--connecting .react-flow__pane,
+.uml-canvas--connecting .react-flow__pane.draggable,
+.uml-canvas--connecting .react-flow__node,
+.uml-canvas--connecting .react-flow__node.selectable {
+  cursor: crosshair;
+}
+
+/* Una clase que otro usuario tiene tomada no se arrastra: React Flow le quita
+   la clase `draggable` y con ella el cursor de agarre, que es justo lo que hay
+   que ver. No hace falta añadir nada. */
+
+/* Arrastrar el fondo mueve el lienzo con cualquier herramienta: mientras dura
+   el gesto manda lo que se está haciendo, no lo que se iba a hacer. Va después
+   de las reglas anteriores a propósito: tienen la misma especificidad y es el
+   orden lo que decide cuál gana. */
+.uml-canvas--placing .react-flow__pane.dragging,
+.uml-canvas--connecting .react-flow__pane.dragging {
+  cursor: grabbing;
+}
+
+.react-flow__handle:hover {
+  background: var(--color-signal-700);
+  transform: scale(1.25);
+}
+
+.react-flow__edge-path {
+  transition: stroke-width 120ms ease;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 2.5;
+}
+
+.react-flow__connectionline path {
+  stroke-dasharray: 5 4;
+}
+
+.react-flow__controls-button {
+  background: #fff;
+  border-bottom: 1px solid var(--color-ink-200);
+  color: var(--color-ink-700);
+}
+
+.react-flow__controls-button:hover {
+  background: var(--color-ink-50);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,377 @@
+// use prisma-8
+// Contract inferred from the live database schema. Edit as needed, then run `prisma contract emit`.
+namespace public {
+  model Users {
+    id                 Uuid                 @id(map: "users_pkey") @default(dbgenerated("gen_random_uuid()"))
+    fullName           VarChar(150)         @map("full_name")
+    email              VarChar(150)         @unique(map: "users_email_key")
+    passwordHash       VarChar(255)         @map("password_hash")
+    avatarUrl          VarChar(500)?        @map("avatar_url")
+    createdAt          TimestamptzString    @default(now()) @map("created_at")
+    updatedAt          TimestamptzString    @default(now()) @map("updated_at")
+    aiCommandLogs      AiCommandLogs[]
+    codeGenerationJobs CodeGenerationJobs[]
+    diagramChangeLogs  DiagramChangeLog[]
+    diagramVersions    DiagramVersions[]
+    diagrams           Diagrams[]
+    photoImportJobs    PhotoImportJobs[]
+    projectMembers     ProjectMembers[]
+    projects           Projects[]
+    xmiExchangeJobs    XmiExchangeJobs[]
+
+    @@rls
+    @@map("users")
+  }
+
+  model Projects {
+    id             Uuid              @id(map: "projects_pkey") @default(dbgenerated("gen_random_uuid()"))
+    name           VarChar(150)
+    description    String?
+    ownerId        Uuid              @map("owner_id")
+    createdAt      TimestamptzString @default(now()) @map("created_at")
+    updatedAt      TimestamptzString @default(now()) @map("updated_at")
+    diagrams       Diagrams[]
+    projectMembers ProjectMembers[]
+    owner          Users             @relation(fields:[ownerId], references:[id], onDelete: Cascade, map: "projects_owner_id_fkey", index: false)
+
+    @@rls
+    @@map("projects")
+  }
+
+  model Diagrams {
+    id                 Uuid                 @id(map: "diagrams_pkey") @default(dbgenerated("gen_random_uuid()"))
+    projectId          Uuid                 @map("project_id")
+    name               VarChar(150)
+    description        String?
+    crdtState          Bytes?               @map("crdt_state")
+    crdtStateVector    Bytes?               @map("crdt_state_vector")
+    createdBy          Uuid                 @map("created_by")
+    createdAt          TimestamptzString    @default(now()) @map("created_at")
+    updatedAt          TimestamptzString    @default(now()) @map("updated_at")
+    aiCommandLogs      AiCommandLogs[]
+    codeGenerationJobs CodeGenerationJobs[]
+    diagramChangeLogs  DiagramChangeLog[]
+    diagramVersions    DiagramVersions[]
+    photoImportJobs    PhotoImportJobs[]
+    umlClasses         UmlClasses[]
+    umlRelationships   UmlRelationships[]
+    xmiExchangeJobs    XmiExchangeJobs[]
+    users              Users                @relation(fields:[createdBy], references:[id], map: "diagrams_created_by_fkey", index: false)
+    project            Projects             @relation(fields:[projectId], references:[id], onDelete: Cascade, map: "diagrams_project_id_fkey")
+
+    @@index([projectId], map: "idx_diagrams_project")
+    @@rls
+    @@map("diagrams")
+  }
+
+  model AiCommandLogs {
+    id                Uuid                 @id(map: "ai_command_logs_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId         Uuid                 @map("diagram_id")
+    userId            Uuid                 @map("user_id")
+    inputType         pg.enum(AiInputType) @map("input_type")
+    rawInput          String               @map("raw_input")
+    transcribedText   String?              @map("transcribed_text")
+    resolvedOperation VarChar(50)?         @map("resolved_operation")
+    operationPayload  Jsonb?               @map("operation_payload")
+    status            VarChar(20)          @default("SUCCESS")
+    errorMessage      String?              @map("error_message")
+    createdAt         TimestamptzString    @default(now()) @map("created_at")
+    diagram           Diagrams             @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "ai_command_logs_diagram_id_fkey")
+    user              Users                @relation(fields:[userId], references:[id], map: "ai_command_logs_user_id_fkey", index: false)
+
+    @@index([diagramId], map: "idx_ai_command_logs_diagram")
+    @@check(expression: "((status)::text = ANY ((ARRAY['SUCCESS'::character varying, 'FAILED'::character varying, 'REJECTED'::character varying])::text[]))", map: "ai_command_logs_status_check")
+    @@rls
+    @@map("ai_command_logs")
+  }
+
+  model CodeGenerationJobs {
+    id                 Uuid                   @id(map: "code_generation_jobs_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId          Uuid                   @map("diagram_id")
+    requestedBy        Uuid                   @map("requested_by")
+    status             pg.enum(CodegenStatus) @default("PENDING")
+    outputArtifactUrl  VarChar(500)?          @map("output_artifact_url")
+    compileCheckPassed Boolean?               @map("compile_check_passed")
+    errorMessage       String?                @map("error_message")
+    createdAt          TimestamptzString      @default(now()) @map("created_at")
+    completedAt        TimestamptzString?     @map("completed_at")
+    diagram            Diagrams               @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "code_generation_jobs_diagram_id_fkey")
+    users              Users                  @relation(fields:[requestedBy], references:[id], map: "code_generation_jobs_requested_by_fkey", index: false)
+
+    @@index([diagramId], map: "idx_code_generation_jobs_diagram")
+    @@rls
+    @@map("code_generation_jobs")
+  }
+
+  model DiagramChangeLog {
+    id            Uuid                       @id(map: "diagram_change_log_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId     Uuid                       @map("diagram_id")
+    userId        Uuid                       @map("user_id")
+    operationType VarChar(50)                @map("operation_type")
+    entityType    pg.enum(DiagramEntityType) @map("entity_type")
+    entityId      Uuid?                      @map("entity_id")
+    payload       Jsonb?
+    createdAt     TimestamptzString          @default(now()) @map("created_at")
+    diagram       Diagrams                   @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "diagram_change_log_diagram_id_fkey")
+    user          Users                      @relation(fields:[userId], references:[id], map: "diagram_change_log_user_id_fkey", index: false)
+
+    @@index([createdAt], map: "idx_diagram_change_log_created_at")
+    @@index([diagramId], map: "idx_diagram_change_log_diagram")
+    @@rls
+    @@map("diagram_change_log")
+  }
+
+  model DiagramVersions {
+    id            Uuid              @id(map: "diagram_versions_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId     Uuid              @map("diagram_id")
+    versionNumber Int               @map("version_number")
+    crdtSnapshot  Bytes             @map("crdt_snapshot")
+    createdBy     Uuid?             @map("created_by")
+    createdAt     TimestamptzString @default(now()) @map("created_at")
+    users         Users?            @relation(fields:[createdBy], references:[id], map: "diagram_versions_created_by_fkey", index: false)
+    diagram       Diagrams          @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "diagram_versions_diagram_id_fkey")
+
+    @@unique([diagramId, versionNumber], map: "diagram_versions_diagram_id_version_number_key")
+    @@index([diagramId], map: "idx_diagram_versions_diagram")
+    @@rls
+    @@map("diagram_versions")
+  }
+
+  model PhotoImportJobs {
+    id             Uuid               @id(map: "photo_import_jobs_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId      Uuid?              @map("diagram_id")
+    userId         Uuid               @map("user_id")
+    imageUrl       VarChar(500)       @map("image_url")
+    // CU05 — Referencia a la imagen original guardada en Cloudinary. El binario
+    // no se guarda aquí: con el public_id se puede volver a ella o borrarla, y
+    // el nombre, el tipo y el tamaño son lo que el usuario subió.
+    cloudinaryPublicId VarChar(255)   @map("cloudinary_public_id")
+    originalFileName   VarChar(255)   @map("original_file_name")
+    mimeType           VarChar(100)   @map("mime_type")
+    fileSize           Int            @map("file_size")
+    status         pg.enum(JobStatus) @default("PENDING")
+    extractedModel Jsonb?             @map("extracted_model")
+    errorMessage   String?            @map("error_message")
+    createdAt      TimestamptzString  @default(now()) @map("created_at")
+    completedAt    TimestamptzString? @map("completed_at")
+    diagram        Diagrams?          @relation(fields:[diagramId], references:[id], onDelete: SetNull, map: "photo_import_jobs_diagram_id_fkey")
+    user           Users              @relation(fields:[userId], references:[id], map: "photo_import_jobs_user_id_fkey", index: false)
+
+    @@index([diagramId], map: "idx_photo_import_jobs_diagram")
+    @@rls
+    @@map("photo_import_jobs")
+  }
+
+  model ProjectMembers {
+    id        Uuid                 @id(map: "project_members_pkey") @default(dbgenerated("gen_random_uuid()"))
+    projectId Uuid                 @map("project_id")
+    userId    Uuid                 @map("user_id")
+    role      pg.enum(ProjectRole) @default("EDITOR")
+    joinedAt  TimestamptzString    @default(now()) @map("joined_at")
+    project   Projects             @relation(fields:[projectId], references:[id], onDelete: Cascade, map: "project_members_project_id_fkey")
+    user      Users                @relation(fields:[userId], references:[id], onDelete: Cascade, map: "project_members_user_id_fkey")
+
+    @@unique([projectId, userId], map: "project_members_project_id_user_id_key")
+    @@index([projectId], map: "idx_project_members_project")
+    @@index([userId], map: "idx_project_members_user")
+    @@rls
+    @@map("project_members")
+  }
+
+  model UmlClasses {
+    id                               Uuid                    @id(map: "uml_classes_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId                        Uuid                    @map("diagram_id")
+    name                             VarChar(150)
+    stereotype                       VarChar(50)?
+    isAbstract                       Boolean                 @default(false) @map("is_abstract")
+    visibility                       pg.enum(UmlVisibility)  @default("public")
+    posX                             Float                   @default(0) @map("pos_x")
+    posY                             Float                   @default(0) @map("pos_y")
+    // NULL = tamaño automático según el contenido; sólo se guarda un valor
+    // cuando el usuario redimensiona la clase a mano en el lienzo.
+    width                            Float?                  @map("width")
+    height                           Float?                  @map("height")
+    createdAt                        TimestamptzString       @default(now()) @map("created_at")
+    updatedAt                        TimestamptzString       @default(now()) @map("updated_at")
+    umlAttributes                    UmlAttributes[]
+    umlMethods                       UmlMethods[]
+    diagram                          Diagrams           @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "uml_classes_diagram_id_fkey")
+    umlRelationships                 UmlRelationships[] @relation(name: "uml_relationships_source_class_id_fkey")
+    umlRelationshipsUmlRelationships UmlRelationships[] @relation(name: "uml_relationships_target_class_id_fkey")
+
+    @@unique([diagramId, name], map: "uml_classes_diagram_id_name_key")
+    @@index([diagramId], map: "idx_uml_classes_diagram")
+    @@rls
+    @@map("uml_classes")
+  }
+
+  model UmlAttributes {
+    id           Uuid              @id(map: "uml_attributes_pkey") @default(dbgenerated("gen_random_uuid()"))
+    classId      Uuid              @map("class_id")
+    name         VarChar(150)
+    // NULL = el atributo existe pero todavía no se sabe de qué tipo es. Pasa al
+    // importar una foto (CU05) donde la caja sólo lista nombres, y al esbozar
+    // una clase antes de decidir los tipos. El nombre sí es obligatorio: un
+    // atributo sin nombre no es nada.
+    dataType     VarChar(50)?      @map("data_type")
+    visibility   pg.enum(UmlVisibility) @default("private")
+    isPrimaryKey Boolean           @default(false) @map("is_primary_key")
+    isNullable   Boolean           @default(true) @map("is_nullable")
+    isUnique     Boolean           @default(false) @map("is_unique")
+    defaultValue VarChar(255)?     @map("default_value")
+    orderIndex   Int               @default(0) @map("order_index")
+    createdAt    TimestamptzString @default(now()) @map("created_at")
+    updatedAt    TimestamptzString @default(now()) @map("updated_at")
+    class        UmlClasses        @relation(fields:[classId], references:[id], onDelete: Cascade, map: "uml_attributes_class_id_fkey")
+
+    @@unique([classId, name], map: "uml_attributes_class_id_name_key")
+    @@index([classId], map: "idx_uml_attributes_class")
+    @@rls
+    @@map("uml_attributes")
+  }
+
+  model UmlMethods {
+    id         Uuid                   @id(map: "uml_methods_pkey") @default(dbgenerated("gen_random_uuid()"))
+    classId    Uuid                   @map("class_id")
+    name       VarChar(150)
+    returnType VarChar(150)           @default("void") @map("return_type")
+    visibility pg.enum(UmlVisibility) @default("public")
+    orderIndex Int                    @default(0) @map("order_index")
+    createdAt  TimestamptzString      @default(now()) @map("created_at")
+    class      UmlClasses             @relation(fields:[classId], references:[id], onDelete: Cascade, map: "uml_methods_class_id_fkey")
+    parameters UmlMethodParameters[]
+
+    @@index([classId], map: "idx_uml_methods_class")
+    @@rls
+    @@map("uml_methods")
+  }
+
+  model UmlMethodParameters {
+    id         Uuid              @id(map: "uml_method_parameters_pkey") @default(dbgenerated("gen_random_uuid()"))
+    methodId   Uuid              @map("method_id")
+    name       VarChar(150)
+    dataType   VarChar(150)      @map("data_type")
+    orderIndex Int               @default(0) @map("order_index")
+    createdAt  TimestamptzString @default(now()) @map("created_at")
+    method     UmlMethods        @relation(fields:[methodId], references:[id], onDelete: Cascade, map: "uml_method_parameters_method_id_fkey")
+
+    @@unique([methodId, name], map: "uml_method_parameters_method_id_name_key")
+    @@index([methodId], map: "idx_uml_method_parameters_method")
+    @@rls
+    @@map("uml_method_parameters")
+  }
+
+  model UmlRelationships {
+    id                 Uuid                      @id(map: "uml_relationships_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId          Uuid                      @map("diagram_id")
+    sourceClassId      Uuid                      @map("source_class_id")
+    targetClassId      Uuid                      @map("target_class_id")
+    relationshipType   pg.enum(RelationshipType) @map("relationship_type")
+    sourceMultiplicity VarChar(10)?              @map("source_multiplicity")
+    targetMultiplicity VarChar(10)?              @map("target_multiplicity")
+    name               VarChar(150)?
+    sourceRole         VarChar(100)?             @map("source_role")
+    targetRole         VarChar(100)?             @map("target_role")
+    isNavigableSource  Boolean                   @default(true) @map("is_navigable_source")
+    isNavigableTarget  Boolean                   @default(true) @map("is_navigable_target")
+    createdAt          TimestamptzString         @default(now()) @map("created_at")
+    updatedAt          TimestamptzString         @default(now()) @map("updated_at")
+    diagram            Diagrams                  @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "uml_relationships_diagram_id_fkey")
+    sourceClass        UmlClasses                @relation(name: "uml_relationships_source_class_id_fkey", fields:[sourceClassId], references:[id], onDelete: Cascade, map: "uml_relationships_source_class_id_fkey")
+    targetClass        UmlClasses                @relation(name: "uml_relationships_target_class_id_fkey", fields:[targetClassId], references:[id], onDelete: Cascade, map: "uml_relationships_target_class_id_fkey")
+
+    @@index([diagramId], map: "idx_uml_relationships_diagram")
+    @@index([sourceClassId], map: "idx_uml_relationships_source")
+    @@index([targetClassId], map: "idx_uml_relationships_target")
+    @@rls
+    @@map("uml_relationships")
+  }
+
+  model XmiExchangeJobs {
+    id           Uuid                  @id(map: "xmi_exchange_jobs_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId    Uuid                  @map("diagram_id")
+    userId       Uuid                  @map("user_id")
+    direction    pg.enum(XmiDirection)
+    fileUrl      VarChar(500)          @map("file_url")
+    status       pg.enum(JobStatus)    @default("PENDING")
+    errorMessage String?               @map("error_message")
+    createdAt    TimestamptzString     @default(now()) @map("created_at")
+    completedAt  TimestamptzString?    @map("completed_at")
+    diagram      Diagrams              @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "xmi_exchange_jobs_diagram_id_fkey")
+    user         Users                 @relation(fields:[userId], references:[id], map: "xmi_exchange_jobs_user_id_fkey", index: false)
+
+    @@index([diagramId], map: "idx_xmi_exchange_jobs_diagram")
+    @@rls
+    @@map("xmi_exchange_jobs")
+  }
+
+  native_enum AiInputType {
+    VOICE = "VOICE"
+    TEXT = "TEXT"
+
+    @@map("ai_input_type")
+  }
+
+  native_enum CodegenStatus {
+    PENDING = "PENDING"
+    GENERATING = "GENERATING"
+    COMPILING = "COMPILING"
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+
+    @@map("codegen_status")
+  }
+
+  native_enum DiagramEntityType {
+    CLASS = "CLASS"
+    ATTRIBUTE = "ATTRIBUTE"
+    METHOD = "METHOD"
+    RELATIONSHIP = "RELATIONSHIP"
+
+    @@map("diagram_entity_type")
+  }
+
+  native_enum JobStatus {
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+
+    @@map("job_status")
+  }
+
+  native_enum ProjectRole {
+    OWNER = "OWNER"
+    EDITOR = "EDITOR"
+    VIEWER = "VIEWER"
+
+    @@map("project_role")
+  }
+
+  native_enum RelationshipType {
+    ASSOCIATION = "ASSOCIATION"
+    AGGREGATION = "AGGREGATION"
+    COMPOSITION = "COMPOSITION"
+    INHERITANCE = "INHERITANCE"
+    REALIZATION = "REALIZATION"
+    DEPENDENCY = "DEPENDENCY"
+
+    @@map("relationship_type")
+  }
+
+  native_enum UmlVisibility {
+    public = "public"
+    private = "private"
+    protected = "protected"
+    package = "package"
+
+    @@map("uml_visibility")
+  }
+
+  native_enum XmiDirection {
+    IMPORT = "IMPORT"
+    EXPORT = "EXPORT"
+
+    @@map("xmi_direction")
+  }
+}
