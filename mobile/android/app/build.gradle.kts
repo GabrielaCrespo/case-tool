@@ -32,9 +32,18 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Se firma con la clave de depuración. Vale para instalarlo a mano
+            // en un teléfono, que es para lo que se usa; publicarlo en Play
+            // pediría una clave propia.
             signingConfig = signingConfigs.getByName("debug")
+
+            // R8 se planta si alguna librería nombra clases que no están, y
+            // flutter_gemma y OkHttp nombran unas cuantas a propósito. Las
+            // reglas explican cuáles y por qué.
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
