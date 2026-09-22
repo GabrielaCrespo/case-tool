@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { CodegenModule } from './codegen/codegen.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
 import { RealtimeStateModule } from './collaboration/realtime-state.module.js';
+import { DeploymentsModule } from './deployments/deployments.module.js';
 import { DiagramsModule } from './diagrams/diagrams.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { XmiModule } from './xmi/xmi.module.js';
@@ -20,6 +21,7 @@ import { XmiModule } from './xmi/xmi.module.js';
     AiModule,
     XmiModule,
     CodegenModule,
+    DeploymentsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

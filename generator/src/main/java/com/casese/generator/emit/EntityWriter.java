@@ -66,9 +66,14 @@ final class EntityWriter {
     List<MethodSpec> accessors = new ArrayList<>();
     Set<String> signatures = new HashSet<>();
 
+    // El @Id y el @Version van los dos en la raíz de la jerarquía y en ninguna
+    // otra: una subclase los hereda, y declararlos de nuevo no compilaría.
     if (plan.declaresId()) {
-      type.addField(identifierField(plan.id()));
-      accessors.addAll(accessorsFor(plan.id().name(), plan.id().type(), signatures));
+      type.addField(identifierField());
+      accessors.addAll(accessorsFor(EntityPlan.ID_NAME, EntityPlan.ID_TYPE, signatures));
+
+      type.addField(versionField());
+      accessors.addAll(accessorsFor(EntityPlan.VERSION_NAME, EntityPlan.VERSION_TYPE, signatures));
     }
 
     for (UmlAttribute attribute : plan.columns()) {
@@ -79,7 +84,8 @@ final class EntityWriter {
 
     for (Link link : plan.links()) {
       type.addField(linkField(link));
-      accessors.addAll(accessorsFor(link.field(), fieldType(link), signatures));
+      accessors.addAll(
+          accessorsFor(link.field(), fieldType(link), signatures, hidesFromJson(link)));
     }
 
     accessors.forEach(type::addMethod);
@@ -90,26 +96,44 @@ final class EntityWriter {
 
   // --------------------------------------------------------------- los campos
 
-  private FieldSpec identifierField(EntityPlan.Id id) {
-    FieldSpec.Builder field =
-        FieldSpec.builder(id.type(), id.name(), Modifier.PRIVATE).addAnnotation(Jpa.ID);
+  /**
+   * La clave primaria: la misma en todas las entidades. {@code IDENTITY} sobre
+   * un {@code Long} es la columna {@code BIGSERIAL} que crea PostgreSQL.
+   */
+  private FieldSpec identifierField() {
+    return FieldSpec.builder(EntityPlan.ID_TYPE, EntityPlan.ID_NAME, Modifier.PRIVATE)
+        .addJavadoc("Clave primaria de la tabla; la pone la herramienta.\n")
+        .addAnnotation(Jpa.ID)
+        .addAnnotation(
+            AnnotationSpec.builder(Jpa.GENERATED_VALUE)
+                .addMember("strategy", "$T.IDENTITY", Jpa.GENERATION_TYPE)
+                .build())
+        .addAnnotation(
+            AnnotationSpec.builder(Jpa.COLUMN)
+                .addMember("name", "$S", Names.sqlIdentifier(EntityPlan.ID_NAME))
+                .build())
+        .build();
+  }
 
-    if (id.generated()) {
-      String strategy = id.type().toString().endsWith("UUID") ? "UUID" : "IDENTITY";
-      field.addAnnotation(
-          AnnotationSpec.builder(Jpa.GENERATED_VALUE)
-              .addMember("strategy", "$T.$L", Jpa.GENERATION_TYPE, strategy)
-              .build());
-    }
-    field.addAnnotation(
-        AnnotationSpec.builder(Jpa.COLUMN)
-            .addMember("name", "$S", Names.sqlIdentifier(id.name()))
-            .build());
-
-    if (id.synthetic()) {
-      field.addJavadoc("El diagrama no marcaba clave primaria; se genera una.\n");
-    }
-    return field.build();
+  /**
+   * El contador de versión que usa JPA para el bloqueo optimista.
+   *
+   * <p>Lo pone el generador en todas las entidades, como la clave primaria, y
+   * es lo que hace que dos escrituras sobre el mismo registro no se pisen: la
+   * segunda llega con una versión vieja, Hibernate la rechaza y el proyecto
+   * generado responde 409. La aplicación móvil se apoya en eso para detectar
+   * los conflictos al sincronizar lo que escribió sin conexión (CU10).
+   */
+  private FieldSpec versionField() {
+    return FieldSpec.builder(EntityPlan.VERSION_TYPE, EntityPlan.VERSION_NAME, Modifier.PRIVATE)
+        .addJavadoc(
+            "Versión del registro; la lleva JPA y sirve para detectar escrituras en conflicto.\n")
+        .addAnnotation(Jpa.VERSION)
+        .addAnnotation(
+            AnnotationSpec.builder(Jpa.COLUMN)
+                .addMember("name", "$S", Names.sqlIdentifier(EntityPlan.VERSION_NAME))
+                .build())
+        .build();
   }
 
   private FieldSpec columnField(UmlAttribute attribute) {
@@ -133,15 +157,53 @@ final class EntityWriter {
     FieldSpec.Builder field =
         FieldSpec.builder(type, attribute.name(), Modifier.PRIVATE).addAnnotation(column.build());
 
+    /*
+     * Lo que el usuario marcó en el lienzo, comprobado antes de llegar a la
+     * base de datos. Sin esto, guardar un obligatorio en blanco daría un error
+     * de PostgreSQL —un 500 sin decir cuál de los campos falla—; con esto, el
+     * proyecto generado responde 400 señalando el campo, que es lo que el
+     * formulario de la aplicación móvil sabe pintar.
+     */
+    if (!attribute.isNullable()) {
+      field.addAnnotation(Jpa.NOT_NULL);
+    }
+    Integer maxLength = JavaTypes.maxLength(attribute.dataType());
+    if (maxLength != null) {
+      field.addAnnotation(
+          AnnotationSpec.builder(Jpa.SIZE).addMember("max", "$L", maxLength).build());
+    }
+
     Defaults.initializer(attribute).ifPresent(field::initializer);
 
     return field.build();
+  }
+
+  /**
+   * Qué relaciones no viajan en el JSON.
+   *
+   * <p>Las referencias sueltas sí: una Factura llega con su Cliente, que es el
+   * dato que lleva encima. Las colecciones no, por dos razones que van juntas.
+   * La primera es de sentido: un Cliente no tiene por qué arrastrar todas sus
+   * facturas cada vez que se pide un Cliente. La segunda es que JPA las carga
+   * perezosamente y la respuesta se escribe fuera de la transacción, de modo
+   * que serializarlas no da una lista larga: da un error.
+   *
+   * <p>El lado inverso de un uno a uno tampoco, aunque no sea colección: quien
+   * manda es el que lleva la clave foránea, y devolver los dos lados sería el
+   * mismo dato dos veces en un círculo.
+   */
+  private static boolean hidesFromJson(Link link) {
+    return link.isCollection() || !link.isOwner();
   }
 
   private FieldSpec linkField(Link link) {
     FieldSpec.Builder field =
         FieldSpec.builder(fieldType(link), link.field(), Modifier.PRIVATE)
             .addJavadoc("$L\n", describe(link));
+
+    if (hidesFromJson(link)) {
+      field.addAnnotation(Jpa.JSON_IGNORE);
+    }
 
     switch (link.kind()) {
       case MANY_TO_ONE -> {
@@ -151,8 +213,7 @@ final class EntityWriter {
                 .addMember("name", "$S", link.joinColumn())
                 .build());
       }
-      case ONE_TO_MANY ->
-          field.addAnnotation(collection(Jpa.ONE_TO_MANY, link)).addAnnotation(Jpa.JSON_IGNORE);
+      case ONE_TO_MANY -> field.addAnnotation(collection(Jpa.ONE_TO_MANY, link));
       case ONE_TO_ONE_OWNER -> {
         AnnotationSpec.Builder one = AnnotationSpec.builder(Jpa.ONE_TO_ONE);
         if (link.cascade()) {
@@ -167,12 +228,10 @@ final class EntityWriter {
                 .build());
       }
       case ONE_TO_ONE_INVERSE ->
-          field
-              .addAnnotation(
-                  AnnotationSpec.builder(Jpa.ONE_TO_ONE)
-                      .addMember("mappedBy", "$S", link.mappedBy())
-                      .build())
-              .addAnnotation(Jpa.JSON_IGNORE);
+          field.addAnnotation(
+              AnnotationSpec.builder(Jpa.ONE_TO_ONE)
+                  .addMember("mappedBy", "$S", link.mappedBy())
+                  .build());
       case MANY_TO_MANY_OWNER -> {
         field.addAnnotation(Jpa.MANY_TO_MANY);
         field.addAnnotation(
@@ -193,12 +252,10 @@ final class EntityWriter {
                 .build());
       }
       case MANY_TO_MANY_INVERSE ->
-          field
-              .addAnnotation(
-                  AnnotationSpec.builder(Jpa.MANY_TO_MANY)
-                      .addMember("mappedBy", "$S", link.mappedBy())
-                      .build())
-              .addAnnotation(Jpa.JSON_IGNORE);
+          field.addAnnotation(
+              AnnotationSpec.builder(Jpa.MANY_TO_MANY)
+                  .addMember("mappedBy", "$S", link.mappedBy())
+                  .build());
     }
 
     if (link.isCollection()) {
@@ -255,12 +312,34 @@ final class EntityWriter {
   // ------------------------------------------------------------- los métodos
 
   private List<MethodSpec> accessorsFor(String field, TypeName type, Set<String> signatures) {
-    MethodSpec getter =
+    return accessorsFor(field, type, signatures, false);
+  }
+
+  /**
+   * El par de descriptores de acceso de un campo.
+   *
+   * <p>{@code hiddenFromJson} pone el {@code @JsonIgnore} también en el
+   * descriptor, y no sólo en el campo, porque no siempre es lo mismo: Jackson
+   * empareja campo y descriptor por el nombre que deduce de cada uno, y con una
+   * clase escrita en mayúsculas no coinciden —el campo {@code nOTAVENTAs} da
+   * «nOTAVENTAs» y {@code getNOTAVENTAs()} da «notaventas»—. La anotación se
+   * quedaba entonces en un campo que Jackson ni miraba, la colección se
+   * serializaba igual y cualquier GET acababa en un 500 al intentar cargarla
+   * fuera de la transacción.
+   */
+  private List<MethodSpec> accessorsFor(
+      String field, TypeName type, Set<String> signatures, boolean hiddenFromJson) {
+
+    MethodSpec.Builder getterBuilder =
         MethodSpec.methodBuilder(Names.accessor("get", field))
             .addModifiers(Modifier.PUBLIC)
             .returns(type)
-            .addStatement("return this.$L", field)
-            .build();
+            .addStatement("return this.$L", field);
+
+    if (hiddenFromJson) {
+      getterBuilder.addAnnotation(Jpa.JSON_IGNORE);
+    }
+    MethodSpec getter = getterBuilder.build();
 
     MethodSpec setter =
         MethodSpec.methodBuilder(Names.accessor("set", field))

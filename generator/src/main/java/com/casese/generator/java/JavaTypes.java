@@ -56,4 +56,17 @@ public final class JavaTypes {
   public static String columnDefinition(String umlType) {
     return "Text".equals(umlType) ? "TEXT" : null;
   }
+
+  /**
+   * Cuántos caracteres caben en la columna, o {@code null} si no hay tope.
+   *
+   * <p>Es el 255 que JPA da por defecto a un {@code String}, escrito aquí para
+   * que lo digan lo mismo las tres cosas que dependen de él: la anotación
+   * {@code @Size} de la entidad, el {@code maxLength} de {@code /api/_meta} y,
+   * a través de él, el formulario de la aplicación móvil. «Text» no lo tiene
+   * porque su columna es TEXT.
+   */
+  public static Integer maxLength(String umlType) {
+    return "String".equals(umlType) ? 255 : null;
+  }
 }

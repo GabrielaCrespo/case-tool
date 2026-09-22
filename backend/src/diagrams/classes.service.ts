@@ -16,11 +16,13 @@ import type { Visibility } from './uml-catalog.js';
 import {
   assertDefaultValueMatchesType,
   assertHasChanges,
+  assertNotPrimaryKeyName,
   isUniqueViolation,
   optionalDataType,
   optionalSize,
   optionalStereotype,
   optionalVarchar,
+  requiredAttributeName,
   requiredBoolean,
   requiredEnum,
   requiredIdentifier,
@@ -63,12 +65,14 @@ export interface ClassInput {
  * elemento va siempre al final de su lista, porque es el servidor quien sabe
  * qué hermanos hay realmente y así la numeración no depende de lo que un
  * cliente tuviera en pantalla.
+ *
+ * No hay ningún campo para la clave primaria: la pone la herramienta en todas
+ * las entidades (PRIMARY_KEY en uml-catalog.ts) y ningún atributo puede serla.
  */
 export interface AttributeInput {
   name?: unknown;
   data_type?: unknown;
   visibility?: unknown;
-  is_primary_key?: unknown;
   is_nullable?: unknown;
   is_unique?: unknown;
   default_value?: unknown;
@@ -271,23 +275,27 @@ export class ClassesService {
       .where({ classId })
       .all();
 
+    const name = this.nameOrDefault(
+      data?.name,
+      'atributo',
+      siblings.map((sibling) => sibling.name),
+    );
+    // La serie «atributo1, atributo2...» nunca choca con la clave primaria;
+    // un nombre pedido a mano sí puede.
+    assertNotPrimaryKeyName(name);
+
     const create: {
       classId: string;
       name: Varchar<typeof NAME_MAX_LENGTH>;
       dataType: Varchar<typeof DATA_TYPE_MAX_LENGTH> | null;
       defaultValue: Varchar<typeof DEFAULT_VALUE_MAX_LENGTH> | null;
       visibility?: Visibility;
-      isPrimaryKey?: boolean;
       isNullable?: boolean;
       isUnique?: boolean;
       orderIndex: number;
     } = {
       classId,
-      name: this.nameOrDefault(
-        data?.name,
-        'atributo',
-        siblings.map((sibling) => sibling.name),
-      ),
+      name,
       dataType,
       defaultValue,
       // Al final de la lista, nunca repitiendo el índice de otro: si se repartiera
@@ -298,18 +306,11 @@ export class ClassesService {
     if (data?.visibility !== undefined) {
       create.visibility = requiredEnum(data.visibility, 'visibility', VISIBILITIES);
     }
-    if (data?.is_primary_key !== undefined) {
-      create.isPrimaryKey = requiredBoolean(data.is_primary_key, 'is_primary_key');
-    }
     if (data?.is_nullable !== undefined) {
       create.isNullable = requiredBoolean(data.is_nullable, 'is_nullable');
     }
     if (data?.is_unique !== undefined) {
       create.isUnique = requiredBoolean(data.is_unique, 'is_unique');
-    }
-
-    if (create.isPrimaryKey === true) {
-      await this.assertNoOtherPrimaryKey(classId, null);
     }
 
     const attribute = await this.createUnique(
@@ -336,13 +337,12 @@ export class ClassesService {
       dataType?: Varchar<typeof DATA_TYPE_MAX_LENGTH> | null;
       defaultValue?: Varchar<typeof DEFAULT_VALUE_MAX_LENGTH> | null;
       visibility?: Visibility;
-      isPrimaryKey?: boolean;
       isNullable?: boolean;
       isUnique?: boolean;
       orderIndex?: number;
     } = {};
     if (data?.name !== undefined) {
-      changes.name = requiredIdentifier(data.name, 'name', NAME_MAX_LENGTH);
+      changes.name = requiredAttributeName(data.name, 'name', NAME_MAX_LENGTH);
     }
     // null quita el tipo, que es lo que hace el selector «sin tipo» del panel.
     if (data?.data_type !== undefined) {
@@ -358,9 +358,6 @@ export class ClassesService {
     if (data?.visibility !== undefined) {
       changes.visibility = requiredEnum(data.visibility, 'visibility', VISIBILITIES);
     }
-    if (data?.is_primary_key !== undefined) {
-      changes.isPrimaryKey = requiredBoolean(data.is_primary_key, 'is_primary_key');
-    }
     if (data?.is_nullable !== undefined) {
       changes.isNullable = requiredBoolean(data.is_nullable, 'is_nullable');
     }
@@ -374,7 +371,6 @@ export class ClassesService {
       'name',
       'data_type',
       'visibility',
-      'is_primary_key',
       'is_nullable',
       'is_unique',
       'default_value',
@@ -387,10 +383,6 @@ export class ClassesService {
       changes.dataType ?? owner.row.dataType,
       changes.defaultValue !== undefined ? changes.defaultValue : owner.row.defaultValue,
     );
-
-    if (changes.isPrimaryKey === true) {
-      await this.assertNoOtherPrimaryKey(owner.classId, attributeId);
-    }
 
     const updated = await this.createUnique(
       () => db.orm.public.UmlAttributes.where({ id: attributeId }).update(changes),
@@ -879,26 +871,6 @@ export class ClassesService {
     }
 
     return type;
-  }
-
-  /**
-   * Una entidad sólo puede tener una clave primaria: si hubiera dos, CU07 no
-   * podría decidir cuál es el @Id de la entidad JPA.
-   */
-  private async assertNoOtherPrimaryKey(
-    classId: string,
-    exceptAttributeId: string | null,
-  ): Promise<void> {
-    const existing = await db.orm.public.UmlAttributes.select('id', 'name')
-      .where({ classId, isPrimaryKey: true })
-      .all();
-
-    const other = existing.find((attribute) => attribute.id !== exceptAttributeId);
-    if (other) {
-      throw new ConflictException(
-        `La clase ya tiene una clave primaria: «${other.name}». Quítesela antes de marcar otra.`,
-      );
-    }
   }
 
   /**

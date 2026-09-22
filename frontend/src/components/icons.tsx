@@ -196,3 +196,11 @@ export const ServerIcon = (p: IconProps) => (
     <path d="M7 7h.01M7 17h.01" />
   </Icon>
 )
+
+/** Publicar el backend: sale de la máquina y se va a una dirección pública. */
+export const CloudIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M7 19h10.5a3.5 3.5 0 0 0 .3-7 5.5 5.5 0 0 0-10.6-1.3A4 4 0 0 0 7 19z" />
+    <path d="M12 15.5v-5M9.8 12.2L12 10l2.2 2.2" />
+  </Icon>
+)

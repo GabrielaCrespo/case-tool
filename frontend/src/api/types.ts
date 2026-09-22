@@ -69,6 +69,11 @@ export const STEREOTYPES = ['entity', 'interface', 'service', 'enumeration'] as 
 
 export type Stereotype = (typeof STEREOTYPES)[number]
 
+/**
+ * Un atributo es una columna de la tabla. No hay ningún campo de clave
+ * primaria: la de toda entidad es «id» y la pone la herramienta (PRIMARY_KEY en
+ * features/editor/uml.ts).
+ */
 export interface UmlAttribute {
   id: string
   class_id: string
@@ -76,7 +81,6 @@ export interface UmlAttribute {
   /** null = el atributo existe pero todavía no se sabe de qué tipo es. */
   data_type: string | null
   visibility: Visibility
-  is_primary_key: boolean
   is_nullable: boolean
   is_unique: boolean
   default_value: string | null
@@ -90,7 +94,6 @@ export interface AttributeInput {
   /** null quita el tipo, dejando el atributo sin determinar. */
   data_type?: string | null
   visibility?: Visibility
-  is_primary_key?: boolean
   is_nullable?: boolean
   is_unique?: boolean
   default_value?: string | null
@@ -288,10 +291,12 @@ export interface AiResult {
   diagram: FullDiagram
 }
 
-/** CU05 — Además, de qué imagen salió. */
+/**
+ * CU05 — Además, cuánto se leyó de la imagen. La imagen no vuelve ni queda
+ * guardada en ninguna parte: se usa una vez, para leerla, y se descarta.
+ */
 export interface ImageImportResult extends AiResult {
   job_id: string
-  image_url: string
   classes_created: number
   relationships_created: number
 }
@@ -353,7 +358,6 @@ export interface ExchangeDocument {
         name: string
         type: string | null
         visibility: string
-        is_primary_key: boolean
         is_nullable: boolean
         is_unique: boolean
         default_value: string | null
@@ -415,9 +419,45 @@ export interface CodegenJob {
   status: CodegenStatus
   /** null mientras no se haya llegado a compilar. */
   compile_check_passed: boolean | null
+  /**
+   * Si además de compilar arrancó contra una PostgreSQL y contestó. null
+   * cuando no se llegó a probarlo, que es lo normal si el servidor no tiene
+   * configurada una base de pruebas.
+   */
+  smoke_check_passed: boolean | null
   download_url: string | null
   error_message: string | null
   created_at: string
   completed_at: string | null
   summary: CodegenSummary | null
+}
+
+/**
+ * En qué anda la publicación del backend generado.
+ *
+ * Publicar no es un caso de uso: es lo que sigue a generar y a descargar, y
+ * deja el backend respondiendo en una URL pública. Los estados son los pasos
+ * por los que pasa: construir la imagen, crear su base y arrancar el
+ * contenedor.
+ */
+export type DeploymentStatus =
+  | 'PENDING'
+  | 'BUILDING'
+  | 'STARTING'
+  | 'RUNNING'
+  | 'FAILED'
+  | 'STOPPED'
+
+export interface Deployment {
+  id: string
+  diagram_id: string
+  status: DeploymentStatus
+  /** Lo que identifica al backend dentro del dominio: /d/<slug>. */
+  slug: string
+  /** La URL pública; sólo cuando el backend llegó a responder. */
+  api_url: string | null
+  error_message: string | null
+  created_at: string
+  updated_at: string
+  deployed_at: string | null
 }

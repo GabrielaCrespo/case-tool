@@ -8,16 +8,16 @@
       "model": "AiCommandLogs",
       "namespace": "public"
     },
+    "backend_deployments": {
+      "model": "BackendDeployments",
+      "namespace": "public"
+    },
     "code_generation_jobs": {
       "model": "CodeGenerationJobs",
       "namespace": "public"
     },
     "diagram_change_log": {
       "model": "DiagramChangeLog",
-      "namespace": "public"
-    },
-    "diagram_versions": {
-      "model": "DiagramVersions",
       "namespace": "public"
     },
     "diagrams": {
@@ -232,6 +232,224 @@
               "table": "ai_command_logs"
             }
           },
+          "BackendDeployments": {
+            "fields": {
+              "apiUrl": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 500
+                  }
+                }
+              },
+              "containerName": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 100
+                  }
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "databaseName": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 63
+                  }
+                }
+              },
+              "deployedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "diagramId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "errorMessage": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "imageTag": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
+              "jobId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "requestedBy": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "slug": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 100
+                  }
+                }
+              },
+              "status": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "deployment_status"
+                  }
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "diagram": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "diagramId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Diagrams",
+                  "namespace": "public"
+                }
+              },
+              "job": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "jobId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "CodeGenerationJobs",
+                  "namespace": "public"
+                }
+              },
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "requestedBy"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Users",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "apiUrl": {
+                  "column": "api_url"
+                },
+                "containerName": {
+                  "column": "container_name"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "databaseName": {
+                  "column": "database_name"
+                },
+                "deployedAt": {
+                  "column": "deployed_at"
+                },
+                "diagramId": {
+                  "column": "diagram_id"
+                },
+                "errorMessage": {
+                  "column": "error_message"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "imageTag": {
+                  "column": "image_tag"
+                },
+                "jobId": {
+                  "column": "job_id"
+                },
+                "requestedBy": {
+                  "column": "requested_by"
+                },
+                "slug": {
+                  "column": "slug"
+                },
+                "status": {
+                  "column": "status"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "backend_deployments"
+            }
+          },
           "CodeGenerationJobs": {
             "fields": {
               "compileCheckPassed": {
@@ -293,6 +511,13 @@
                   "kind": "scalar"
                 }
               },
+              "smokeCheckPassed": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "status": {
                 "nullable": false,
                 "type": {
@@ -305,6 +530,21 @@
               }
             },
             "relations": {
+              "backendDeployments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "jobId"
+                  ]
+                },
+                "to": {
+                  "model": "BackendDeployments",
+                  "namespace": "public"
+                }
+              },
               "diagram": {
                 "cardinality": "N:1",
                 "nullable": false,
@@ -363,6 +603,9 @@
                 },
                 "requestedBy": {
                   "column": "requested_by"
+                },
+                "smokeCheckPassed": {
+                  "column": "smoke_check_passed"
                 },
                 "status": {
                   "column": "status"
@@ -502,126 +745,8 @@
               "table": "diagram_change_log"
             }
           },
-          "DiagramVersions": {
-            "fields": {
-              "crdtSnapshot": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/bytea@1",
-                  "kind": "scalar"
-                }
-              },
-              "createdAt": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "kind": "scalar"
-                }
-              },
-              "createdBy": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
-              "diagramId": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
-              "id": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/uuid@1",
-                  "kind": "scalar"
-                }
-              },
-              "versionNumber": {
-                "nullable": false,
-                "type": {
-                  "codecId": "pg/int4@1",
-                  "kind": "scalar"
-                }
-              }
-            },
-            "relations": {
-              "diagram": {
-                "cardinality": "N:1",
-                "nullable": false,
-                "on": {
-                  "localFields": [
-                    "diagramId"
-                  ],
-                  "targetFields": [
-                    "id"
-                  ]
-                },
-                "to": {
-                  "model": "Diagrams",
-                  "namespace": "public"
-                }
-              },
-              "users": {
-                "cardinality": "N:1",
-                "nullable": true,
-                "on": {
-                  "localFields": [
-                    "createdBy"
-                  ],
-                  "targetFields": [
-                    "id"
-                  ]
-                },
-                "to": {
-                  "model": "Users",
-                  "namespace": "public"
-                }
-              }
-            },
-            "storage": {
-              "fields": {
-                "crdtSnapshot": {
-                  "column": "crdt_snapshot"
-                },
-                "createdAt": {
-                  "column": "created_at"
-                },
-                "createdBy": {
-                  "column": "created_by"
-                },
-                "diagramId": {
-                  "column": "diagram_id"
-                },
-                "id": {
-                  "column": "id"
-                },
-                "versionNumber": {
-                  "column": "version_number"
-                }
-              },
-              "namespaceId": "public",
-              "table": "diagram_versions"
-            }
-          },
           "Diagrams": {
             "fields": {
-              "crdtState": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/bytea@1",
-                  "kind": "scalar"
-                }
-              },
-              "crdtStateVector": {
-                "nullable": true,
-                "type": {
-                  "codecId": "pg/bytea@1",
-                  "kind": "scalar"
-                }
-              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -691,6 +816,21 @@
                   "namespace": "public"
                 }
               },
+              "backendDeployments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "diagramId"
+                  ]
+                },
+                "to": {
+                  "model": "BackendDeployments",
+                  "namespace": "public"
+                }
+              },
               "codeGenerationJobs": {
                 "cardinality": "1:N",
                 "on": {
@@ -718,21 +858,6 @@
                 },
                 "to": {
                   "model": "DiagramChangeLog",
-                  "namespace": "public"
-                }
-              },
-              "diagramVersions": {
-                "cardinality": "1:N",
-                "on": {
-                  "localFields": [
-                    "id"
-                  ],
-                  "targetFields": [
-                    "diagramId"
-                  ]
-                },
-                "to": {
-                  "model": "DiagramVersions",
                   "namespace": "public"
                 }
               },
@@ -831,12 +956,6 @@
             },
             "storage": {
               "fields": {
-                "crdtState": {
-                  "column": "crdt_state"
-                },
-                "crdtStateVector": {
-                  "column": "crdt_state_vector"
-                },
                 "createdAt": {
                   "column": "created_at"
                 },
@@ -865,16 +984,6 @@
           },
           "PhotoImportJobs": {
             "fields": {
-              "cloudinaryPublicId": {
-                "nullable": false,
-                "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 255
-                  }
-                }
-              },
               "completedAt": {
                 "nullable": true,
                 "type": {
@@ -922,16 +1031,6 @@
                 "type": {
                   "codecId": "pg/uuid@1",
                   "kind": "scalar"
-                }
-              },
-              "imageUrl": {
-                "nullable": false,
-                "type": {
-                  "codecId": "sql/varchar@1",
-                  "kind": "scalar",
-                  "typeParams": {
-                    "length": 500
-                  }
                 }
               },
               "mimeType": {
@@ -1008,9 +1107,6 @@
             },
             "storage": {
               "fields": {
-                "cloudinaryPublicId": {
-                  "column": "cloudinary_public_id"
-                },
                 "completedAt": {
                   "column": "completed_at"
                 },
@@ -1031,9 +1127,6 @@
                 },
                 "id": {
                   "column": "id"
-                },
-                "imageUrl": {
-                  "column": "image_url"
                 },
                 "mimeType": {
                   "column": "mime_type"
@@ -2161,6 +2254,21 @@
                   "namespace": "public"
                 }
               },
+              "backendDeployments": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "requestedBy"
+                  ]
+                },
+                "to": {
+                  "model": "BackendDeployments",
+                  "namespace": "public"
+                }
+              },
               "codeGenerationJobs": {
                 "cardinality": "1:N",
                 "on": {
@@ -2188,21 +2296,6 @@
                 },
                 "to": {
                   "model": "DiagramChangeLog",
-                  "namespace": "public"
-                }
-              },
-              "diagramVersions": {
-                "cardinality": "1:N",
-                "on": {
-                  "localFields": [
-                    "id"
-                  ],
-                  "targetFields": [
-                    "createdBy"
-                  ]
-                },
-                "to": {
-                  "model": "DiagramVersions",
                   "namespace": "public"
                 }
               },
@@ -2350,13 +2443,13 @@
                   "kind": "scalar"
                 }
               },
-              "fileUrl": {
+              "fileName": {
                 "nullable": false,
                 "type": {
                   "codecId": "sql/varchar@1",
                   "kind": "scalar",
                   "typeParams": {
-                    "length": 500
+                    "length": 255
                   }
                 }
               },
@@ -2436,8 +2529,8 @@
                 "errorMessage": {
                   "column": "error_message"
                 },
-                "fileUrl": {
-                  "column": "file_url"
+                "fileName": {
+                  "column": "file_name"
                 },
                 "id": {
                   "column": "id"
@@ -2481,13 +2574,26 @@
               ],
               "typeName": "codegen_status"
             },
+            "deployment_status": {
+              "kind": "postgres-enum",
+              "members": [
+                "PENDING",
+                "BUILDING",
+                "STARTING",
+                "RUNNING",
+                "FAILED",
+                "STOPPED"
+              ],
+              "typeName": "deployment_status"
+            },
             "diagram_entity_type": {
               "kind": "postgres-enum",
               "members": [
                 "CLASS",
                 "ATTRIBUTE",
                 "METHOD",
-                "RELATIONSHIP"
+                "RELATIONSHIP",
+                "DIAGRAM"
               ],
               "typeName": "diagram_entity_type"
             },
@@ -2547,6 +2653,11 @@
               "namespaceId": "public",
               "tableName": "ai_command_logs"
             },
+            "backend_deployments": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "backend_deployments"
+            },
             "code_generation_jobs": {
               "kind": "rls",
               "namespaceId": "public",
@@ -2556,11 +2667,6 @@
               "kind": "rls",
               "namespaceId": "public",
               "tableName": "diagram_change_log"
-            },
-            "diagram_versions": {
-              "kind": "rls",
-              "namespaceId": "public",
-              "tableName": "diagram_versions"
             },
             "diagrams": {
               "kind": "rls",
@@ -2764,6 +2870,190 @@
               },
               "uniques": []
             },
+            "backend_deployments": {
+              "columns": {
+                "api_url": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 500
+                  }
+                },
+                "container_name": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 100
+                  }
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "database_name": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 63
+                  }
+                },
+                "deployed_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "diagram_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "error_message": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "image_tag": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
+                "job_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "requested_by": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "slug": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 100
+                  }
+                },
+                "status": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PENDING"
+                  },
+                  "nativeType": "deployment_status",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "deployment_status"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "DeploymentStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "backend_deployments_diagram_id_fkey",
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "diagram_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "backend_deployments"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "diagrams"
+                  }
+                },
+                {
+                  "name": "backend_deployments_job_id_fkey",
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "job_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "backend_deployments"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "code_generation_jobs"
+                  }
+                },
+                {
+                  "name": "backend_deployments_requested_by_fkey",
+                  "source": {
+                    "columns": [
+                      "requested_by"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "backend_deployments"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "backend_deployments_pkey"
+              },
+              "uniques": [
+                {
+                  "columns": [
+                    "diagram_id"
+                  ],
+                  "name": "backend_deployments_diagram_id_key"
+                }
+              ]
+            },
             "code_generation_jobs": {
               "columns": {
                 "compile_check_passed": {
@@ -2816,6 +3106,11 @@
                   "codecId": "pg/uuid@1",
                   "nativeType": "uuid",
                   "nullable": false
+                },
+                "smoke_check_passed": {
+                  "codecId": "pg/bool@1",
+                  "nativeType": "bool",
+                  "nullable": true
                 },
                 "status": {
                   "codecId": "pg/enum@1",
@@ -3014,121 +3309,8 @@
               },
               "uniques": []
             },
-            "diagram_versions": {
-              "columns": {
-                "crdt_snapshot": {
-                  "codecId": "pg/bytea@1",
-                  "nativeType": "bytea",
-                  "nullable": false
-                },
-                "created_at": {
-                  "codecId": "pg/timestamptz-string@1",
-                  "default": {
-                    "expression": "now()",
-                    "kind": "function"
-                  },
-                  "nativeType": "timestamptz",
-                  "nullable": false
-                },
-                "created_by": {
-                  "codecId": "pg/uuid@1",
-                  "nativeType": "uuid",
-                  "nullable": true
-                },
-                "diagram_id": {
-                  "codecId": "pg/uuid@1",
-                  "nativeType": "uuid",
-                  "nullable": false
-                },
-                "id": {
-                  "codecId": "pg/uuid@1",
-                  "default": {
-                    "expression": "gen_random_uuid()",
-                    "kind": "function"
-                  },
-                  "nativeType": "uuid",
-                  "nullable": false
-                },
-                "version_number": {
-                  "codecId": "pg/int4@1",
-                  "nativeType": "int4",
-                  "nullable": false
-                }
-              },
-              "foreignKeys": [
-                {
-                  "name": "diagram_versions_created_by_fkey",
-                  "source": {
-                    "columns": [
-                      "created_by"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "diagram_versions"
-                  },
-                  "target": {
-                    "columns": [
-                      "id"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "users"
-                  }
-                },
-                {
-                  "name": "diagram_versions_diagram_id_fkey",
-                  "onDelete": "cascade",
-                  "source": {
-                    "columns": [
-                      "diagram_id"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "diagram_versions"
-                  },
-                  "target": {
-                    "columns": [
-                      "id"
-                    ],
-                    "namespaceId": "public",
-                    "tableName": "diagrams"
-                  }
-                }
-              ],
-              "indexes": [
-                {
-                  "columns": [
-                    "diagram_id"
-                  ],
-                  "name": "idx_diagram_versions_diagram",
-                  "unique": false
-                }
-              ],
-              "primaryKey": {
-                "columns": [
-                  "id"
-                ],
-                "name": "diagram_versions_pkey"
-              },
-              "uniques": [
-                {
-                  "columns": [
-                    "diagram_id",
-                    "version_number"
-                  ],
-                  "name": "diagram_versions_diagram_id_version_number_key"
-                }
-              ]
-            },
             "diagrams": {
               "columns": {
-                "crdt_state": {
-                  "codecId": "pg/bytea@1",
-                  "nativeType": "bytea",
-                  "nullable": true
-                },
-                "crdt_state_vector": {
-                  "codecId": "pg/bytea@1",
-                  "nativeType": "bytea",
-                  "nullable": true
-                },
                 "created_at": {
                   "codecId": "pg/timestamptz-string@1",
                   "default": {
@@ -3236,14 +3418,6 @@
             },
             "photo_import_jobs": {
               "columns": {
-                "cloudinary_public_id": {
-                  "codecId": "sql/varchar@1",
-                  "nativeType": "character varying",
-                  "nullable": false,
-                  "typeParams": {
-                    "length": 255
-                  }
-                },
                 "completed_at": {
                   "codecId": "pg/timestamptz-string@1",
                   "nativeType": "timestamptz",
@@ -3286,14 +3460,6 @@
                   },
                   "nativeType": "uuid",
                   "nullable": false
-                },
-                "image_url": {
-                  "codecId": "sql/varchar@1",
-                  "nativeType": "character varying",
-                  "nullable": false,
-                  "typeParams": {
-                    "length": 500
-                  }
                 },
                 "mime_type": {
                   "codecId": "sql/varchar@1",
@@ -4423,12 +4589,12 @@
                   "nativeType": "text",
                   "nullable": true
                 },
-                "file_url": {
+                "file_name": {
                   "codecId": "sql/varchar@1",
                   "nativeType": "character varying",
                   "nullable": false,
                   "typeParams": {
-                    "length": 500
+                    "length": 255
                   }
                 },
                 "id": {
@@ -4537,13 +4703,25 @@
                 "FAILED"
               ]
             },
+            "DeploymentStatus": {
+              "kind": "valueSet",
+              "values": [
+                "PENDING",
+                "BUILDING",
+                "STARTING",
+                "RUNNING",
+                "FAILED",
+                "STOPPED"
+              ]
+            },
             "DiagramEntityType": {
               "kind": "valueSet",
               "values": [
                 "CLASS",
                 "ATTRIBUTE",
                 "METHOD",
-                "RELATIONSHIP"
+                "RELATIONSHIP",
+                "DIAGRAM"
               ]
             },
             "JobStatus": {
@@ -4596,7 +4774,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "2f69bfe96f3358b064dac1ddc5ebbe290d1295478254b5ac9ba89994ab7345a0"
+    "storageHash": "18ca028a38acaf17fc89e415c288f82756b72afde4aa0efe1900ad0793c7142d"
   },
   "capabilities": {
     "postgres": {

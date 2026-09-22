@@ -10,7 +10,7 @@ import {
   DEFAULT_VALUE_HINTS,
   LIMITS,
   VISIBILITY_OPTIONS,
-  identifierProblem,
+  attributeNameProblem,
   isDefaultValueCompatible,
   visibilitySymbol,
 } from '../uml'
@@ -41,8 +41,9 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
     if (value.length === 0) return 'El nombre no puede estar vacío.'
     if (value.length > LIMITS.attributeName) return `Máximo ${LIMITS.attributeName} caracteres.`
     if (siblingNames.includes(value)) return 'Ya existe un atributo con ese nombre.'
-    // El nombre será el de un campo Java en la entidad generada.
-    return identifierProblem(value)
+    // El nombre será el de un campo Java en la entidad generada, y no puede
+    // ser el de la clave primaria que la herramienta añade a toda entidad.
+    return attributeNameProblem(value)
   }
 
   /**
@@ -82,11 +83,6 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
               </>
             )}
           </span>
-          {attribute.is_primary_key && (
-            <span className="shrink-0 rounded-[2px] bg-signal-100 px-1 font-mono text-[9px] font-bold text-signal-700">
-              PK
-            </span>
-          )}
         </button>
 
         <IconButton
@@ -182,19 +178,6 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
           </PanelField>
 
           <div className="flex flex-col gap-1.5 pt-0.5">
-            <Checkbox
-              label="Clave primaria"
-              checked={attribute.is_primary_key}
-              onChange={(event) =>
-                // Una clave primaria nunca admite nulos: se ajusta al marcarla
-                // para no dejar el atributo en un estado que la validación
-                // rechazaría después.
-                void updateAttribute(attribute.id, {
-                  is_primary_key: event.target.checked,
-                  ...(event.target.checked ? { is_nullable: false } : {}),
-                })
-              }
-            />
             <Checkbox
               label="Valor único"
               checked={attribute.is_unique}

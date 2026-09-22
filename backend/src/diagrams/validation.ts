@@ -3,10 +3,12 @@ import type { Varchar } from '@prisma/orm-postgres/target/codec-types';
 import {
   DEFAULT_VALUE_EXAMPLES,
   OFFERED_DATA_TYPES,
+  PRIMARY_KEY,
   STEREOTYPES,
   identifierProblem,
   isDataType,
   isDefaultValueCompatible,
+  isPrimaryKeyName,
 } from './uml-catalog.js';
 import type { Stereotype } from './uml-catalog.js';
 
@@ -91,6 +93,32 @@ export function requiredIdentifier<N extends number>(
   }
 
   return name;
+}
+
+/**
+ * Nombre de un atributo. Es un identificador como el de una clase o un método,
+ * y además no puede ser «id»: esa columna la pone la herramienta en todas las
+ * tablas, así que un atributo con ese nombre daría dos columnas iguales en la
+ * entidad generada.
+ */
+export function requiredAttributeName<N extends number>(
+  value: unknown,
+  field: string,
+  maxLength: N,
+): Varchar<N> {
+  const name = requiredIdentifier(value, field, maxLength);
+  assertNotPrimaryKeyName(name);
+
+  return name;
+}
+
+/** La otra mitad de requiredAttributeName, para un nombre ya comprobado. */
+export function assertNotPrimaryKeyName(name: string): void {
+  if (isPrimaryKeyName(name)) {
+    throw new BadRequestException(
+      `Ningún atributo puede llamarse «${PRIMARY_KEY.name}»: toda entidad tiene ya esa clave primaria, y la pone la herramienta.`,
+    );
+  }
 }
 
 /** Estereotipo de una clase; null cuando no tiene ninguno. */

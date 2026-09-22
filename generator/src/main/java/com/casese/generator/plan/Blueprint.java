@@ -82,35 +82,25 @@ public final class Blueprint {
 
     readHierarchy(parents, realized, withChildren);
 
-    // Cada clase persistente, con su clave primaria y sus columnas. Los enlaces
-    // se añaden después, cuando ya se sabe qué nombres están ocupados.
-    Map<String, EntityPlan.Id> ids = new LinkedHashMap<>();
+    // Cada clase persistente con sus columnas. Los enlaces se añaden después,
+    // cuando ya se sabe qué nombres están ocupados.
     Map<String, List<UmlAttribute>> columns = new LinkedHashMap<>();
     Map<String, Set<String>> taken = new LinkedHashMap<>();
     Map<String, List<Link>> links = new LinkedHashMap<>();
-
-    // Primero todas las claves primarias: una subclase necesita saber cómo se
-    // llama la de su padre, y el padre puede estar más abajo en la lista.
-    for (UmlClass umlClass : model.classes()) {
-      if (isPersistent(umlClass)) {
-        ids.put(umlClass.id(), parents.containsKey(umlClass.id()) ? null : identifierOf(umlClass));
-      }
-    }
 
     for (UmlClass umlClass : model.classes()) {
       if (!isPersistent(umlClass)) {
         continue;
       }
-      EntityPlan.Id id = ids.get(umlClass.id());
-      String idName = id != null ? id.name() : inheritedIdName(umlClass, parents, ids);
-
-      List<UmlAttribute> own = columnsOf(umlClass, id, idName);
+      List<UmlAttribute> own = columnsOf(umlClass);
       columns.put(umlClass.id(), own);
 
+      // La clave primaria y el contador de versión ocupan su nombre en todas:
+      // una subclase los hereda del padre, pero los campos existen igual y una
+      // relación no puede llamarse como ellos.
       Set<String> used = new LinkedHashSet<>();
-      if (idName != null) {
-        used.add(idName);
-      }
+      used.add(EntityPlan.ID_NAME);
+      used.add(EntityPlan.VERSION_NAME);
       own.forEach(attribute -> used.add(attribute.name()));
       taken.put(umlClass.id(), used);
       links.put(umlClass.id(), new ArrayList<>());
@@ -128,7 +118,9 @@ public final class Blueprint {
               parents.get(umlClass.id()),
               realized.getOrDefault(umlClass.id(), List.of()),
               withChildren.contains(umlClass.id()),
-              ids.get(umlClass.id()),
+              // Sólo la raíz de la jerarquía declara el @Id; las demás lo
+              // heredan, y declararlo otra vez no compilaría.
+              !parents.containsKey(umlClass.id()),
               columns.get(umlClass.id()),
               links.get(umlClass.id())));
     }
@@ -174,74 +166,34 @@ public final class Blueprint {
     }
   }
 
-  /** El nombre del {@code @Id} que la clase hereda, subiendo hasta la raíz. */
-  private String inheritedIdName(
-      UmlClass umlClass, Map<String, UmlClass> parents, Map<String, EntityPlan.Id> ids) {
-
-    UmlClass current = umlClass;
-    Set<String> visited = new HashSet<>();
-
-    while (current != null && visited.add(current.id())) {
-      EntityPlan.Id id = ids.get(current.id());
-      if (id != null) {
-        return id.name();
-      }
-      current = parents.get(current.id());
-    }
-    return null;
-  }
-
-  /**
-   * La clave primaria de una clase raíz.
-   *
-   * <p>Si el diagrama no marca ninguna se inventa un {@code Long id}
-   * autogenerado: una clase dibujada sin clave primaria casi siempre es una a
-   * la que aún no se le ha puesto, no una que no la quiera. Un atributo llamado
-   * «id» sin marcar se toma como la clave, que es lo que evidentemente quiere
-   * decir.
-   */
-  private EntityPlan.Id identifierOf(UmlClass umlClass) {
-    UmlAttribute key = umlClass.primaryKey();
-
-    if (key == null) {
-      key =
-          umlClass.attributes().stream()
-              .filter(attribute -> attribute.name().equalsIgnoreCase("id"))
-              .findFirst()
-              .orElse(null);
-    }
-
-    if (key == null) {
-      return new EntityPlan.Id("id", ClassName.get(Long.class), true, true);
-    }
-
-    if (!key.hasType() || !JavaTypes.isCatalogType(key.dataType())) {
-      notes.add(
-          "La clave primaria %s.%s no tiene un tipo del catálogo; se genera como Long autogenerado."
-              .formatted(umlClass.name(), key.name()));
-      return new EntityPlan.Id(key.name(), ClassName.get(Long.class), true, false);
-    }
-
-    // Sólo se autogenera lo que la base sabe producir. Una clave de tipo String
-    // o una fecha la trae quien da de alta el registro.
-    boolean generated =
-        switch (key.dataType()) {
-          case "Long", "Integer", "UUID" -> true;
-          default -> false;
-        };
-    return new EntityPlan.Id(key.name(), JavaTypes.of(key.dataType()), generated, false);
-  }
-
   /** Los atributos que serán columnas: ni la clave primaria ni los que no tienen tipo. */
-  private List<UmlAttribute> columnsOf(UmlClass umlClass, EntityPlan.Id id, String inheritedId) {
+  private List<UmlAttribute> columnsOf(UmlClass umlClass) {
     List<UmlAttribute> result = new ArrayList<>();
 
     for (UmlAttribute attribute : umlClass.attributes()) {
-      if (id != null && !id.synthetic() && attribute.name().equals(id.name())) {
+      /*
+       * Un atributo llamado «id» se omite: la clave primaria de la tabla la
+       * pone el generador, y declarar además un campo con ese nombre daría dos
+       * columnas iguales. El editor ya no deja crearlo y las importaciones lo
+       * descartan, así que aquí sólo puede llegar desde un diagrama guardado
+       * antes de esa regla.
+       */
+      if (attribute.name().equalsIgnoreCase(EntityPlan.ID_NAME)) {
+        notes.add(
+            "El atributo %s.%s se ha omitido: la clave primaria «%s» la pone el generador."
+                .formatted(umlClass.name(), attribute.name(), EntityPlan.ID_NAME));
         continue;
       }
-      // Una subclase no repite el identificador del padre: en Java ya lo tiene.
-      if (id == null && attribute.name().equals(inheritedId)) {
+      /*
+       * Lo mismo con «version»: el campo que lleva la cuenta de las
+       * modificaciones lo pone el generador en todas las entidades, y una
+       * columna del diagrama con ese nombre daría dos campos iguales.
+       */
+      if (attribute.name().equalsIgnoreCase(EntityPlan.VERSION_NAME)) {
+        notes.add(
+            "El atributo %s.%s se ha omitido: «%s» lo lleva el generador para detectar"
+                    + " escrituras en conflicto."
+                .formatted(umlClass.name(), attribute.name(), EntityPlan.VERSION_NAME));
         continue;
       }
       if (!attribute.hasType()) {
@@ -598,21 +550,6 @@ public final class Blueprint {
     return referenced.hasStereotype("service")
         ? standaloneServiceType(referenced)
         : entityType(referenced);
-  }
-
-  /** El identificador de la entidad, mirando hacia arriba si lo hereda. */
-  public EntityPlan.Id identifierFor(EntityPlan plan) {
-    EntityPlan current = plan;
-    Set<String> visited = new HashSet<>();
-
-    while (current != null && visited.add(current.umlClass().id())) {
-      if (current.id() != null) {
-        return current.id();
-      }
-      UmlClass parent = current.parent();
-      current = parent == null ? null : planOf(parent);
-    }
-    return new EntityPlan.Id("id", ClassName.get(Long.class), true, true);
   }
 
   public EntityPlan planOf(UmlClass umlClass) {

@@ -2,9 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { FullDiagramResponse } from '../diagrams/diagrams.service.js';
+import { decodeXmi } from './xmi-format.js';
 import { generateXmi } from './xmi-generator.js';
 import { parseXmi } from './xmi-parser.js';
 import type { ParsedXmi } from './xmi-parser.js';
+import { XmiService } from './xmi.service.js';
 
 /**
  * CU06 — Que un modelo sobreviva al viaje de ida y vuelta.
@@ -71,7 +73,6 @@ function toDiagram(parsed: ParsedXmi): FullDiagramResponse {
         // El catálogo no tiene «int»; el servicio lo traduce al importar.
         data_type: attribute.type === 'int' ? 'Integer' : attribute.type,
         visibility: attribute.visibility,
-        is_primary_key: false,
         is_nullable: attribute.isNullable,
         is_unique: attribute.isUnique,
         default_value: attribute.defaultValue,
@@ -195,5 +196,217 @@ describe('CU06 — exportar y volver a leer', () => {
     expect(xmi).toContain('<UML:Generalization');
     expect(xmi).toContain('<UML:Dependency');
     expect(xmi).toContain('value="Realisation"');
+  });
+});
+
+/**
+ * CU06 — Lo que Enterprise Architect necesita del archivo.
+ *
+ * Estas comprobaciones no son sobre UML sino sobre EA: son las piezas que él
+ * espera encontrar y que, al faltar, hacían que abriera el archivo con las
+ * cajas amontonadas y las líneas dibujadas como le parecía. Se comparan contra
+ * el archivo de EA de verdad, que es el que dice cómo tienen que ser.
+ */
+/**
+ * CU06 — Las letras acentuadas.
+ *
+ * Un diagrama de este proyecto está escrito en castellano, así que la mitad de
+ * los nombres llevan tilde o eñe. Es lo primero que se rompe al intercambiar
+ * archivos con una herramienta que no usa la misma codificación.
+ */
+describe('CU06 — el nombre con tilde sobrevive al viaje', () => {
+  /** El mismo XMI mínimo, escrito como lo escribiría cada herramienta. */
+  const fileWith = (encoding: 'windows-1252' | 'utf-8'): Buffer => {
+    const xml = `<?xml version="1.0" encoding="${encoding}"?>
+<XMI xmi.version="1.1" xmlns:UML="omg.org/UML1.3">
+	<XMI.content>
+		<UML:Model name="EA Model" xmi.id="MX_1">
+			<UML:Namespace.ownedElement>
+				<UML:Package name="Catálogo" xmi.id="EAPK_1" visibility="public">
+					<UML:Namespace.ownedElement>
+						<UML:Class name="Categoría" xmi.id="EAID_1" visibility="public"/>
+					</UML:Namespace.ownedElement>
+				</UML:Package>
+			</UML:Namespace.ownedElement>
+		</UML:Model>
+	</XMI.content>
+</XMI>`;
+
+    return Buffer.from(xml, encoding === 'utf-8' ? 'utf8' : 'latin1');
+  };
+
+  it('lee un archivo de EA, que viene en windows-1252', () => {
+    const parsed = parseXmi(decodeXmi(fileWith('windows-1252')));
+
+    expect(parsed.name).toBe('Catálogo');
+    expect(parsed.classes[0].name).toBe('Categoría');
+  });
+
+  it('lee también el de una herramienta que escriba en UTF-8', () => {
+    const parsed = parseXmi(decodeXmi(fileWith('utf-8')));
+
+    expect(parsed.classes[0].name).toBe('Categoría');
+  });
+
+  it('exporta la tilde como referencia numérica, que vale en las dos', () => {
+    const diagram = toDiagram(parseXmi(decodeXmi(fileWith('windows-1252'))));
+    const xmi = generateXmi(diagram);
+
+    expect(xmi).toContain('name="Categor&#237;a"');
+    // Todo el archivo es ASCII —cada carácter ocupa un byte—, así que ninguna
+    // herramienta puede leerlo torcido por la codificación.
+    expect(Buffer.byteLength(xmi, 'utf8')).toBe(xmi.length);
+    expect(parseXmi(xmi).classes[0].name).toBe('Categoría');
+  });
+});
+
+describe('CU06 — el archivo tiene la forma que espera Enterprise Architect', () => {
+  const diagram = toDiagram(parseXmi(EA_FILE));
+  const xmi = generateXmi(diagram);
+
+  it('declara la clase raíz de EA y su bloque de extensión', () => {
+    expect(xmi).toContain('<?xml version="1.0" encoding="windows-1252"?>');
+    expect(xmi).toContain('name="EARootClass"');
+    expect(xmi).toContain('<XMI.extensions xmi.extender="Enterprise Architect 2.5">');
+  });
+
+  it('numera los elementos y dice entre qué números va cada línea', () => {
+    expect(xmi).toContain('<UML:TaggedValue tag="ea_eleType" value="element"/>');
+    expect(xmi).toContain('<UML:TaggedValue tag="ea_localid"');
+    expect(xmi).toContain('<UML:TaggedValue tag="ea_sourceID"');
+    expect(xmi).toContain('<UML:TaggedValue tag="ea_targetID"');
+  });
+
+  it('ata cada línea del dibujo a las dos cajas por su DUID', () => {
+    const boxes = [...xmi.matchAll(/style="DUID=([0-9A-F]{8});"/g)].map((match) => match[1]);
+    const links = [...xmi.matchAll(/EOID=([0-9A-F]{8});SOID=([0-9A-F]{8});/g)];
+    const connectors = [...xmi.matchAll(/<UML:(Association|Generalization|Dependency) /g)];
+
+    expect(boxes).toHaveLength(diagram.classes.length);
+    // Una por cada línea escrita: las dos asociaciones de la entidad
+    // intermedia son una sola línea, así que no se cuentan las relaciones.
+    expect(links).toHaveLength(connectors.length);
+    // Ninguna línea puede apuntar a una caja que no está dibujada: es lo que
+    // dejaba a EA sin saber dónde empieza y dónde acaba cada relación.
+    for (const [, target, source] of links) {
+      expect(boxes).toContain(target);
+      expect(boxes).toContain(source);
+    }
+  });
+
+  it('escribe la clave primaria de cada entidad, que no está en el modelo', () => {
+    // El «id» lo pone la herramienta, así que no viaja en uml_attributes; pero
+    // quien abra el archivo en EA está mirando el diseño de unas tablas, y una
+    // tabla sin su clave primaria no describe lo que CU07 va a generar.
+    const keys = [...xmi.matchAll(/<UML:Attribute name="id" /g)];
+    expect(keys).toHaveLength(diagram.classes.length);
+
+    // Su tipo tiene que estar declarado, o EA le pondría uno por su cuenta.
+    expect(xmi).toContain('<UML:DataType xmi.id="eaxmiid1" name="Integer"');
+    expect(xmi).toMatch(/<UML:DataType xmi\.id="eaxmiid\d+" name="Long"/);
+  });
+
+  it('escribe un solo id aunque la clase guardada ya tuviera el suyo', () => {
+    // Un modelo importado de EA antes de esta regla trae su propia columna
+    // «id»; escribir además la implícita daría dos columnas iguales en la misma
+    // tabla, que es lo que EA abre como un atributo repetido.
+    const conIdPropio = {
+      ...diagram,
+      classes: diagram.classes.map((umlClass, index) =>
+        index === 0
+          ? {
+              ...umlClass,
+              attributes: [
+                { ...umlClass.attributes[0], id: randomUUID(), name: 'ID', data_type: 'Integer' },
+                ...umlClass.attributes,
+              ],
+            }
+          : umlClass,
+      ),
+    };
+
+    const written = generateXmi(conIdPropio);
+
+    expect([...written.matchAll(/<UML:Attribute name="id" /gi)]).toHaveLength(
+      diagram.classes.length,
+    );
+  });
+
+  it('marca la agregación con la palabra de EA y en el extremo del todo', () => {
+    // EA escribe «shared», no el «aggregate» de UML 1.3, y pone el rombo en el
+    // destino; con lo otro dibujaba una asociación corriente.
+    expect(xmi).toContain('aggregation="shared"');
+    expect(xmi).toContain('aggregation="composite"');
+    expect(xmi).not.toContain('aggregation="aggregate"');
+  });
+
+  it('escribe la entidad intermedia como la clase de asociación de EA', () => {
+    // Class6 llegó del archivo de EA como clase de asociación de Class2—Class4
+    // y se guardó como dos asociaciones hacia ella; al exportar vuelve a ser
+    // una sola línea con la caja colgando.
+    const intermediate = diagram.classes.find((umlClass) => umlClass.name === 'Class6')!;
+
+    expect(xmi).toContain(`<UML:TaggedValue tag="associationclass" value="EAID_`);
+    expect(xmi).toContain('<UML:TaggedValue tag="conID"');
+    expect(
+      diagram.relationships.filter(
+        (relationship) => relationship.target_class_id === intermediate.id,
+      ),
+    ).toHaveLength(2);
+    // Las dos asociaciones hacia ella no se escriben además de la línea.
+    expect([...xmi.matchAll(/<UML:Association /g)]).toHaveLength(
+      diagram.relationships.filter((relationship) =>
+        ['ASSOCIATION', 'AGGREGATION', 'COMPOSITION'].includes(relationship.relationship_type),
+      ).length - 1,
+    );
+  });
+
+  it('al volver a leerlo, el id no se importa como atributo: la entidad ya lo tiene', () => {
+    // El otro lado de la regla anterior. Un modelo de EA cuyas tablas traen su
+    // columna «id» —o uno que esta herramienta acaba de exportar— se importa
+    // con esa columna descartada y un solo aviso para todo el archivo, en vez
+    // de dejar un atributo que después el generador tendría que omitir.
+    const service = new XmiService(null as never, null as never, null as never);
+    const parsed = parseXmi(xmi);
+    const warnings: string[] = [];
+
+    const classes = service['resolveNames'](parsed, warnings);
+
+    expect(classes).toHaveLength(diagram.classes.length);
+    for (const umlClass of classes) {
+      expect(umlClass.attributes.map((attribute) => attribute.name)).not.toContain('id');
+    }
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('«id»');
+  });
+
+  it('no escribe coordenadas negativas, que EA no sabe dibujar', () => {
+    // El lienzo deja arrastrar una clase por encima del origen; EA recorta esas
+    // coordenadas a cero y las cajas de ese borde acaban unas sobre otras.
+    const moved = {
+      ...diagram,
+      classes: diagram.classes.map((umlClass, index) =>
+        index === 0 ? { ...umlClass, pos_x: -300, pos_y: -80 } : umlClass,
+      ),
+    };
+
+    const geometries = [...generateXmi(moved).matchAll(/Left=(-?\d+);Top=(-?\d+)/g)];
+    expect(geometries.length).toBeGreaterThan(0);
+    for (const [, left, top] of geometries) {
+      expect(Number(left)).toBeGreaterThanOrEqual(0);
+      expect(Number(top)).toBeGreaterThanOrEqual(0);
+    }
+
+    // Y el desplazamiento es el mismo para todas: el dibujo no se deforma.
+    const again = parseXmi(generateXmi(moved));
+    const distance = (parsed: { classes: { name: string; position: { x: number } | null }[] }) => {
+      const first = parsed.classes.find((umlClass) => umlClass.name === 'Class2')!.position!;
+      const second = parsed.classes.find((umlClass) => umlClass.name === 'Class4')!.position!;
+      return second.x - first.x;
+    };
+    expect(distance(again)).toBe(
+      moved.classes.find((umlClass) => umlClass.name === 'Class4')!.pos_x -
+        moved.classes.find((umlClass) => umlClass.name === 'Class2')!.pos_x,
+    );
   });
 });

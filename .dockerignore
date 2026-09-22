@@ -1,0 +1,43 @@
+# Qué NO entra en las imágenes de la herramienta.
+#
+# Está en la raíz porque las dos imágenes —backend/Dockerfile y
+# frontend/Dockerfile— se construyen con el repositorio entero por contexto: el
+# backend necesita además el generador de generator/. Docker lee el
+# .dockerignore de la raíz del contexto, que es ésta.
+
+# ------------------------------------------------------------------ secretos
+# Ni una credencial dentro de una imagen: la configuración entra por variables
+# de entorno al arrancar. Las plantillas *.example sí viajan.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# -------------------------------------------------------------- dependencias
+node_modules/
+**/node_modules/
+
+# --------------------------------------------------------- compilados y caché
+dist/
+**/dist/
+build/
+target/
+**/target/
+*.tsbuildinfo
+coverage/
+**/coverage/
+
+# CU07 — Proyectos generados: son artefactos, y en el servidor viven en un
+# volumen, no dentro de la imagen.
+backend/generated/
+
+# ------------------------------------------------------- lo que no hace falta
+.git/
+.github/
+mobile/
+whisper-env/
+**/__pycache__/
+*.log
+.idea/
+.vscode/
+.claude/

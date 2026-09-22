@@ -5,9 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.mobile"
+    namespace = "com.casetool.mobile"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Sin ndkVersion a propósito: ninguna de las dependencias compila código
+    // nativo desde el fuente —todas traen sus binarios ya hechos—, y pedir el
+    // NDK obligaría a descargar dos gigas para no usarlos.
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -15,11 +17,10 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        applicationId = "com.casetool.mobile"
+        // 26 y no el mínimo que trae Flutter: es lo que pide MediaPipe, que es
+        // sobre lo que corre el modelo de lenguaje del teléfono (CU09).
+        minSdk = 26
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)

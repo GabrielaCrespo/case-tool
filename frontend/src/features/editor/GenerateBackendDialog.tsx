@@ -271,6 +271,8 @@ function Success({
         </p>
       )}
 
+      <Startup passed={job.smoke_check_passed} />
+
       {summary && summary.notes.length > 0 && (
         <div className="border border-pending-600/40 bg-pending-100 px-3 py-2.5">
           <p className="text-[12.5px] font-semibold text-pending-700">
@@ -292,6 +294,37 @@ function Success({
       >
         Volver a generarlo desde el diagrama actual
       </button>
+    </div>
+  )
+}
+
+/**
+ * El resultado de haberlo arrancado, que no es lo mismo que haberlo compilado.
+ *
+ * Compilar dice que el Java está bien escrito; arrancar dice que las
+ * anotaciones JPA describen un esquema que Hibernate sabe crear. Cuando el
+ * servidor no tiene una base de pruebas configurada no se comprueba, y entonces
+ * no se dice nada en vez de insinuar que salió mal.
+ */
+function Startup({ passed }: { passed: boolean | null }) {
+  if (passed === null) return null
+
+  return passed ? (
+    <p className="flex items-center gap-1.5 text-[12.5px] leading-relaxed text-ink-500">
+      <CheckIcon className="size-3.5 shrink-0 text-signal-600" />
+      También arranca: se ha levantado contra una PostgreSQL y ha respondido.
+    </p>
+  ) : (
+    <div className="border border-pending-600/40 bg-pending-100 px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-pending-700">
+        <AlertIcon className="size-4 shrink-0" />
+        Compila, pero no llegó a arrancar
+      </p>
+      <p className="mt-1 text-[12.5px] leading-relaxed text-ink-700">
+        El proyecto está escrito y se puede descargar, pero al levantarlo contra PostgreSQL no
+        respondió. Suele ser cosa de la base de pruebas del servidor; si no lo es, revise las
+        decisiones de más abajo antes de publicarlo.
+      </p>
     </div>
   )
 }

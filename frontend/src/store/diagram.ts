@@ -18,6 +18,7 @@ import type {
   UmlRelationship,
   VoiceResult,
 } from '../api/types'
+import { suggestDataType } from '../features/editor/type-inference'
 import type {
   DiagramChange,
   LockableType,
@@ -139,6 +140,11 @@ interface DiagramStore {
   updateAttribute: (attributeId: string, input: AttributeInput) => Promise<boolean>
   deleteAttribute: (attributeId: string) => Promise<void>
   reorderAttribute: (classId: string, attributeId: string, direction: -1 | 1) => Promise<void>
+  /**
+   * CU02 — Pone un tipo deducido del nombre a los atributos que no tienen
+   * ninguno, en una entidad o en todo el diagrama. Devuelve cuántos cambió.
+   */
+  inferAttributeTypes: (classId?: string) => Promise<number>
 
   addMethod: (classId: string) => Promise<void>
   updateMethod: (methodId: string, input: MethodInput) => Promise<boolean>
@@ -597,6 +603,39 @@ export const useDiagramStore = create<DiagramStore>((set, get) => {
       )
     },
 
+    async inferAttributeTypes(classId) {
+      const untyped = get()
+        .classes.filter((umlClass) => classId === undefined || umlClass.id === classId)
+        .flatMap((umlClass) => umlClass.attributes)
+        .filter((attribute) => attribute.data_type === null)
+      if (untyped.length === 0) return 0
+
+      // Se mandan todos a la vez y se aplica lo que responde la API, no lo que
+      // se le pidió: el tipo lo valida ella contra el catálogo de CU02.
+      const updated = await run(
+        () =>
+          Promise.all(
+            untyped.map((attribute) =>
+              classesApi.updateAttribute(attribute.id, {
+                data_type: suggestDataType(attribute.name),
+              }),
+            ),
+          ),
+        'No se pudieron deducir los tipos de dato.',
+      )
+      if (!updated) return 0
+
+      const byId = new Map(updated.map((attribute) => [attribute.id, attribute]))
+      set((state) => ({
+        classes: state.classes.map((umlClass) => ({
+          ...umlClass,
+          attributes: umlClass.attributes.map((attribute) => byId.get(attribute.id) ?? attribute),
+        })),
+      }))
+
+      return updated.length
+    },
+
     async addMethod(classId) {
       const umlClass = get().classes.find((candidate) => candidate.id === classId)
       if (!umlClass) return
@@ -784,9 +823,10 @@ export const useDiagramStore = create<DiagramStore>((set, get) => {
 
     /**
      * Une «Estudiante» y «Materia» a través de «EstudianteMateria»: la clase
-     * intermedia nace con su clave primaria y con una asociación 1 : 0..* desde
-     * cada una de las dos. El cambio lo hace la API sobre el modelo guardado;
-     * aquí sólo se refleja el resultado en el lienzo.
+     * intermedia nace vacía —su clave primaria «id» la pone la herramienta,
+     * como en toda entidad— y con una asociación 1 : 0..* desde cada una de
+     * las dos. El cambio lo hace la API sobre el modelo guardado; aquí sólo se
+     * refleja el resultado en el lienzo.
      */
     async createAssociationClass(sourceClassId, targetClassId) {
       const diagram = get().diagram

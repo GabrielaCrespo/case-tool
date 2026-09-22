@@ -32,7 +32,10 @@ CREATE TYPE codegen_status AS ENUM ('PENDING', 'GENERATING', 'COMPILING', 'SUCCE
 
 CREATE TYPE xmi_direction AS ENUM ('IMPORT', 'EXPORT');
 
-CREATE TYPE diagram_entity_type AS ENUM ('CLASS', 'ATTRIBUTE', 'METHOD', 'RELATIONSHIP');
+-- Qué se tocó en un cambio del diagrama. 'DIAGRAM' es el propio diagrama:
+-- cambiarle el nombre o la descripción también se registra.
+CREATE TYPE diagram_entity_type AS ENUM
+  ('CLASS', 'ATTRIBUTE', 'METHOD', 'RELATIONSHIP', 'DIAGRAM');
 
 -- ============================================================================
 -- FUNCIÓN GENÉRICA PARA updated_at
@@ -94,7 +97,16 @@ CREATE INDEX idx_project_members_project ON project_members(project_id);
 CREATE INDEX idx_project_members_user ON project_members(user_id);
 
 -- ============================================================================
--- 3. DIAGRAMAS (estado colaborativo + metadatos)
+-- 3. DIAGRAMAS
+--    El modelo UML no vive aquí: vive estructurado en las tablas del punto 4.
+--    Esta tabla sólo guarda de qué diagrama se trata y a qué proyecto
+--    pertenece.
+--
+--    Aquí hubo un `crdt_state BYTEA` y una tabla `diagram_versions` con
+--    instantáneas de un documento Yjs. Se quitaron: la colaboración de CU03 no
+--    usa CRDT —difunde cada cambio ya guardado a la sala— y esas columnas
+--    nunca llegaron a escribirse. Un esquema con restos de un diseño que no se
+--    llevó a cabo confunde a quien lo lee después.
 -- ============================================================================
 
 CREATE TABLE diagrams (
@@ -102,8 +114,6 @@ CREATE TABLE diagrams (
     project_id          UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     name                VARCHAR(150) NOT NULL,
     description         TEXT,
-    crdt_state          BYTEA,          -- snapshot binario del documento Yjs
-    crdt_state_vector   BYTEA,
     created_by          UUID NOT NULL REFERENCES users(id),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -114,18 +124,6 @@ CREATE INDEX idx_diagrams_project ON diagrams(project_id);
 CREATE TRIGGER trg_diagrams_updated_at
     BEFORE UPDATE ON diagrams
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
-
-CREATE TABLE diagram_versions (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    diagram_id      UUID NOT NULL REFERENCES diagrams(id) ON DELETE CASCADE,
-    version_number  INTEGER NOT NULL,
-    crdt_snapshot   BYTEA NOT NULL,
-    created_by      UUID REFERENCES users(id),
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (diagram_id, version_number)
-);
-
-CREATE INDEX idx_diagram_versions_diagram ON diagram_versions(diagram_id);
 
 -- ============================================================================
 -- 4. MODELO UML RELACIONAL (clases, atributos, métodos, relaciones)
@@ -166,6 +164,10 @@ CREATE TABLE uml_attributes (
     -- esbozar una clase antes de decidir los tipos.
     data_type       VARCHAR(50),                -- String, Integer, Long, BigDecimal, LocalDate...
     visibility      uml_visibility NOT NULL DEFAULT 'private',
+    -- Ya no se usa: la clave primaria de una entidad es siempre «id», la pone
+    -- la herramienta y no se declara como atributo. La aplicación no la lee ni
+    -- la escribe, y la columna se conserva sólo para no tocar las filas ya
+    -- guardadas; puede borrarse cuando convenga.
     is_primary_key  BOOLEAN NOT NULL DEFAULT FALSE,
     is_nullable     BOOLEAN NOT NULL DEFAULT TRUE,
     is_unique       BOOLEAN NOT NULL DEFAULT FALSE,
@@ -264,11 +266,9 @@ CREATE TABLE photo_import_jobs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     diagram_id      UUID REFERENCES diagrams(id) ON DELETE SET NULL,
     user_id         UUID NOT NULL REFERENCES users(id),
-    image_url       VARCHAR(500) NOT NULL,
-    -- Referencia a la imagen original en Cloudinary. El binario nunca se
-    -- guarda aquí: con el public_id se vuelve a ella o se borra, y el nombre,
-    -- el tipo y el tamaño son los del archivo que subió el usuario.
-    cloudinary_public_id VARCHAR(255) NOT NULL,
+    -- De la imagen queda su descripción, nunca la imagen ni una referencia a
+    -- ella: se le enseña al modelo en la misma petición en la que llega y se
+    -- descarta. Lo que se leyó está en extracted_model.
     original_file_name   VARCHAR(255) NOT NULL,
     mime_type            VARCHAR(100) NOT NULL,
     file_size            INTEGER NOT NULL,
@@ -285,12 +285,16 @@ CREATE INDEX idx_photo_import_jobs_diagram ON photo_import_jobs(diagram_id);
 -- 7. INTERCAMBIO XMI CON ENTERPRISE ARCHITECT
 -- ============================================================================
 
+-- De un intercambio queda su registro, no el archivo: quién, cuándo, en qué
+-- sentido y con qué nombre de archivo. Es la misma regla que en CU05 con las
+-- imágenes; el .xmi se genera al vuelo al exportar y se descarta en cuanto se
+-- ha leído al importar.
 CREATE TABLE xmi_exchange_jobs (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     diagram_id      UUID NOT NULL REFERENCES diagrams(id) ON DELETE CASCADE,
     user_id         UUID NOT NULL REFERENCES users(id),
     direction       xmi_direction NOT NULL,
-    file_url        VARCHAR(500) NOT NULL,
+    file_name       VARCHAR(255) NOT NULL,
     status          job_status NOT NULL DEFAULT 'PENDING',
     error_message   TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -310,12 +314,47 @@ CREATE TABLE code_generation_jobs (
     status                  codegen_status NOT NULL DEFAULT 'PENDING',
     output_artifact_url     VARCHAR(500),   -- ubicación del .zip generado
     compile_check_passed    BOOLEAN,
+    -- Además de compilar, el backend generado arrancó contra una PostgreSQL y
+    -- contestó. NULL = no se llegó a probarlo: la comprobación necesita una
+    -- base de pruebas (SMOKE_DB_URL) y sin ella el paso se salta.
+    smoke_check_passed      BOOLEAN,
     error_message           TEXT,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     completed_at            TIMESTAMPTZ
 );
 
 CREATE INDEX idx_code_generation_jobs_diagram ON code_generation_jobs(diagram_id);
+
+-- ============================================================================
+-- 8b. PUBLICACIÓN DEL BACKEND GENERADO
+--     Un backend generado puesto en marcha y accesible por una URL pública.
+--     Publicar no es un caso de uso: es una operación de CU07, el paso que
+--     sigue a generarlo y descargarlo.
+-- ============================================================================
+
+CREATE TYPE deployment_status AS ENUM
+  ('PENDING', 'BUILDING', 'STARTING', 'RUNNING', 'FAILED', 'STOPPED');
+
+CREATE TABLE backend_deployments (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    diagram_id      UUID NOT NULL REFERENCES diagrams(id) ON DELETE CASCADE,
+    -- De qué generación salió. Si esa generación se borra el despliegue sigue
+    -- en pie: el contenedor está corriendo, sólo se pierde de dónde vino.
+    job_id          UUID REFERENCES code_generation_jobs(id) ON DELETE SET NULL,
+    requested_by    UUID NOT NULL REFERENCES users(id),
+    status          deployment_status NOT NULL DEFAULT 'PENDING',
+    slug            VARCHAR(100) NOT NULL,
+    api_url         VARCHAR(500),
+    container_name  VARCHAR(100),
+    database_name   VARCHAR(63),
+    image_tag       VARCHAR(200),
+    error_message   TEXT,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deployed_at     TIMESTAMPTZ,
+    -- Un despliegue por diagrama: publicar otra vez reemplaza el anterior.
+    UNIQUE (diagram_id)
+);
 
 -- ============================================================================
 -- 9. BITÁCORA DE CAMBIOS DEL DIAGRAMA (auditoría a nivel de operación)

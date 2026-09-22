@@ -40,6 +40,13 @@ public final class ProjectGenerator {
     CrudWriter crud = new CrudWriter(blueprint);
 
     java(sources, blueprint.basePackage(), support.application());
+    java(sources, blueprint.basePackage(), support.cors());
+    java(sources, blueprint.basePackage(), support.unknownReference());
+    java(sources, blueprint.controllerPackage(), support.errors());
+
+    // La descripción del modelo, que es lo que permite que una sola aplicación
+    // móvil sirva para cualquier diagrama generado.
+    java(sources, blueprint.controllerPackage(), new MetaWriter(blueprint).write());
 
     int endpoints = 0;
     for (EntityPlan plan : blueprint.entities()) {
@@ -69,6 +76,11 @@ public final class ProjectGenerator {
     text(output, "pom.xml", resourceWriter.pom());
     text(output, "src/main/resources/application.properties", resourceWriter.applicationProperties());
     text(output, "README.md", resourceWriter.readme());
+
+    // Con estos dos el proyecto se publica sin tener Java ni Maven instalados,
+    // que es como lo despliega la herramienta y como lo probaría cualquiera.
+    text(output, "Dockerfile", resourceWriter.dockerfile());
+    text(output, ".dockerignore", resourceWriter.dockerignore());
 
     return new GenerationReport(
         blueprint.artifactId(),

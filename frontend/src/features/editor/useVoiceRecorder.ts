@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * Envuelve MediaRecorder para que el asistente sólo tenga que preocuparse de
  * dos cosas: empezar y parar. Lo que sale es un Blob de audio que se manda al
  * backend; aquí no se transcribe ni se interpreta nada —eso ocurre en el
- * servidor, con Faster-Whisper y el mismo flujo de CU04 que el texto—.
+ * servidor, con Whisper y el mismo flujo de CU04 que el texto—.
  */
 
 export type RecorderState =

@@ -7,6 +7,7 @@ import type {
   AuthResponse,
   ClassInput,
   CodegenJob,
+  Deployment,
   Diagram,
   DiagramInput,
   DiagramValidation,
@@ -111,6 +112,24 @@ export const backendApi = {
   status: (diagramId: string) => api.get<CodegenJob | null>(`/diagrams/${diagramId}/backend`),
   /** CU08 — El proyecto generado, comprimido. */
   download: (diagramId: string) => api.getFile(`/diagrams/${diagramId}/backend/download`),
+}
+
+/**
+ * Publicar el backend generado: dejarlo respondiendo en una URL pública.
+ *
+ * Es lo que hace posible CU09, porque la aplicación móvil necesita una
+ * dirección a la que llamar. Como construir la imagen tarda, `deploy` devuelve
+ * el despliegue en marcha y se consulta `status` hasta que llega a RUNNING.
+ */
+export const deploymentApi = {
+  deploy: (diagramId: string) => api.post<Deployment>(`/diagrams/${diagramId}/deployment`),
+  /** null si a este diagrama nunca se le ha publicado el backend. */
+  status: (diagramId: string) => api.get<Deployment | null>(`/diagrams/${diagramId}/deployment`),
+  /** Las últimas líneas del contenedor: lo que explica un arranque fallido. */
+  logs: (diagramId: string) =>
+    api.get<{ lines: string }>(`/diagrams/${diagramId}/deployment/logs`),
+  /** Da de baja: para el contenedor y borra su base de datos. */
+  remove: (diagramId: string) => api.delete<Deployment>(`/diagrams/${diagramId}/deployment`),
 }
 
 /** CU02 — Clases del diagrama y su contenido. */

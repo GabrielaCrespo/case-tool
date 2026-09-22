@@ -650,13 +650,19 @@ export interface RawImageModel {
     targetClass: string;
     sourceMultiplicity: string | null;
     targetMultiplicity: string | null;
+    /**
+     * Nombre de la caja que colgaba de esta línea por un trazo discontinuo: la
+     * entidad intermedia. La línea no se crea tal cual cuando lo trae, sino que
+     * se convierte en las dos asociaciones que la unen a los extremos.
+     */
+    associationClass: string | null;
   }[];
   /** Lo que se descartó por no ser legible; se le cuenta al usuario. */
   problems: string[];
 }
 
 /**
- * Lee la estructura que devuelve Qwen3-VL al mirar la imagen.
+ * Lee la estructura que devuelve el modelo de visión al mirar la imagen.
  *
  * Aquí, a diferencia de CU04, lo ilegible se descarta en lugar de tumbar la
  * importación entera: de una foto de pizarra se lee lo que se lee, y una
@@ -709,6 +715,14 @@ export function parseImageModel(raw: unknown): RawImageModel {
       ),
       targetMultiplicity: normalizeMultiplicity(
         textOf(entry, 'targetMultiplicity', 'target_multiplicity'),
+      ),
+      associationClass: textOf(
+        entry,
+        'associationClass',
+        'association_class',
+        'associationClassName',
+        'claseAsociacion',
+        'claseIntermedia',
       ),
     });
   }

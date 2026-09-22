@@ -114,6 +114,41 @@ function normalizeUpper(value: string | undefined): string | null {
   return text === '-1' || text === '*' || text.toLowerCase() === 'unlimited' ? '*' : text;
 }
 
+/**
+ * El texto de un archivo, leído con la codificación que él mismo declara.
+ *
+ * No es un detalle: Enterprise Architect exporta en windows-1252 y lo dice en
+ * su primera línea. Leer esos bytes como UTF-8 no da error —el XML sigue
+ * siendo válido— pero estropea en silencio todas las letras acentuadas, y una
+ * clase «Categoría» entra como «Categor?a» o se queda por el camino al limpiar
+ * el nombre. El prólogo siempre es ASCII, así que se puede mirar antes de
+ * saber en qué está escrito el resto.
+ */
+export function decodeXmi(buffer: Buffer): string {
+  const declared = /encoding\s*=\s*["']([\w-]+)["']/i
+    .exec(buffer.subarray(0, 200).toString('latin1'))?.[1]
+    ?.toLowerCase();
+
+  const text =
+    declared === undefined || declared === 'utf-8' || declared === 'utf8'
+      ? buffer.toString('utf8')
+      : decodeAs(buffer, declared);
+
+  // Algunos editores dejan la marca de orden al guardar; delante del «<?xml»
+  // hace que el archivo deje de ser XML válido.
+  return text.replace(/^﻿/, '');
+}
+
+function decodeAs(buffer: Buffer, encoding: string): string {
+  try {
+    return new TextDecoder(encoding).decode(buffer);
+  } catch {
+    // Una codificación que Node no conoce: latin1 conserva byte a byte lo que
+    // se pueda, en vez de llenarlo todo de caracteres de relleno.
+    return buffer.toString('latin1');
+  }
+}
+
 /** Visibilidades UML; coinciden con las del tipo enumerado uml_visibility. */
 export const VISIBILITIES = ['public', 'private', 'protected', 'package'] as const;
 
@@ -123,12 +158,24 @@ export function toVisibility(value: string | undefined, fallback: string): strin
   return (VISIBILITIES as readonly string[]).includes(text) ? text : fallback;
 }
 
-/** Escapa lo que va dentro de un atributo o de un texto XML. */
+/**
+ * Escapa lo que va dentro de un atributo o de un texto XML.
+ *
+ * Además de los cinco caracteres de siempre se escapa todo lo que no sea ASCII
+ * —«Categoría» se escribe «Categor&#237;a»—. El motivo es la codificación: el
+ * archivo se declara en windows-1252, que es lo que declaran los de Enterprise
+ * Architect, y una «í» escrita en UTF-8 dentro de un archivo que dice ser
+ * windows-1252 se lee como dos caracteres raros. Una referencia numérica
+ * significa lo mismo en las dos codificaciones, así que el nombre sobrevive
+ * sea cual sea la que use quien lo abra.
+ */
 export function escapeXml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
+    .replace(/'/g, '&apos;')
+    // La «u» hace que un emoji —dos unidades de código— se escape como uno solo.
+    .replace(/[^\x20-\x7e\t\n\r]/gu, (character) => `&#${character.codePointAt(0)};`);
 }

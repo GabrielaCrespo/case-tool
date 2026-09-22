@@ -1,0 +1,171 @@
+# La herramienta CASE en marcha, en una sola instancia.
+#
+# Cuatro servicios: Traefik, que resuelve el TLS y reparte por dominio y por
+# ruta; el editor React; el backend NestJS; y un PostgreSQL que NO es el de la
+# herramienta —el suyo sigue en Supabase— sino el de los backends que la
+# herramienta genera y publica.
+#
+# Los backends publicados no están aquí. Los crea el backend en tiempo de
+# ejecución, uno por diagrama, y se enganchan a esta misma red con sus propias
+# etiquetas de Traefik. Por eso la red tiene nombre fijo: para que un contenedor
+# creado desde fuera de este archivo pueda unirse a ella.
+#
+# Antes de levantarlo hay que escribir deploy/.env; el README de esta carpeta
+# dice qué lleva.
+
+name: case-tool
+
+networks:
+  case-tool:
+    name: case-tool
+
+volumes:
+  # Los certificados de Let's Encrypt. Sin persistirlos, cada reinicio pediría
+  # certificados nuevos y se toparía con el límite semanal de la autoridad.
+  traefik-certs:
+  # Las bases de los backends publicados.
+  postgres-data:
+  # Los proyectos que genera CU07, que tienen que sobrevivir a reconstruir la
+  # imagen del backend.
+  generated:
+  # La caché de Maven, compartida entre construcciones. El primer backend que
+  # se publica descarga medio Spring Boot; los siguientes, nada.
+  maven-cache:
+
+services:
+  traefik:
+    image: traefik:v3.3
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      # Nada se publica solo: un contenedor sale a internet si lo pide con sus
+      # etiquetas. Es lo que evita que el PostgreSQL acabe expuesto por
+      # descuido.
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=case-tool
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # Todo por HTTPS: Android no habla con un backend en claro, y la
+      # aplicación móvil de CU09 tiene que poder.
+      - --entrypoints.web.http.redirections.entryPoint.to=websecure
+      - --entrypoints.web.http.redirections.entryPoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/certs/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Sólo lectura: Traefik necesita mirar qué contenedores hay y con qué
+      # etiquetas, no crear ninguno.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-certs:/certs
+    networks:
+      - case-tool
+
+  postgres:
+    image: postgres:16
+    # Con nombre fijo a propósito: el backend crea la base de cada despliegue
+    # con `docker exec`, y eso necesita el nombre del contenedor, no el alias
+    # de red. Sin esto, Compose le pondría delante el nombre del proyecto y el
+    # nombre dependería de cómo se llame la carpeta.
+    container_name: case-tool-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DEPLOY_DB_USER}
+      POSTGRES_PASSWORD: ${DEPLOY_DB_PASSWORD}
+      # Una base por backend publicado, creadas al publicar. Ésta es sólo la
+      # que PostgreSQL necesita para arrancar.
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - case-tool
+    # Sin `ports`: se llega a ella desde la red de Docker y no desde internet.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DEPLOY_DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      # La raíz del repositorio: la imagen del backend lleva dentro el
+      # generador, que vive en generator/.
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: case-tool/api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # La base de la propia herramienta, que está en Supabase.
+      DATABASE_URL: ${DATABASE_URL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CORS_ORIGINS: https://${DOMAIN}
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GROQ_TEXT_MODEL: ${GROQ_TEXT_MODEL:-openai/gpt-oss-20b}
+      GROQ_VISION_MODEL: ${GROQ_VISION_MODEL:-qwen/qwen3.8-27b}
+      GROQ_AUDIO_MODEL: ${GROQ_AUDIO_MODEL:-whisper-large-v3-turbo}
+      GROQ_AUDIO_LANGUAGE: ${GROQ_AUDIO_LANGUAGE:-es}
+
+      # Publicar backends generados.
+      DEPLOY_DOMAIN: ${DOMAIN}
+      DEPLOY_NETWORK: case-tool
+      # El alias de red, para la URL de JDBC de cada backend publicado.
+      DEPLOY_DB_HOST: postgres
+      # El nombre del contenedor, para `docker exec` al crear su base.
+      DEPLOY_DB_CONTAINER: case-tool-postgres
+      DEPLOY_DB_USER: ${DEPLOY_DB_USER}
+      DEPLOY_DB_PASSWORD: ${DEPLOY_DB_PASSWORD}
+      MAX_DEPLOYMENTS: ${MAX_DEPLOYMENTS:-3}
+
+      # Comprobar que lo generado arranca, contra una base de la instancia.
+      SMOKE_DB_URL: jdbc:postgresql://postgres:5432/postgres
+      SMOKE_DB_USER: ${DEPLOY_DB_USER}
+      SMOKE_DB_PASSWORD: ${DEPLOY_DB_PASSWORD}
+    volumes:
+      # El socket de Docker. Es lo que permite que la herramienta construya y
+      # arranque los backends generados sin entrar a la máquina: corre en ella.
+      # Lo que cuesta está escrito en el README de esta carpeta, y no es poco.
+      - /var/run/docker.sock:/var/run/docker.sock
+      - generated:/data/generated
+      # La misma caché de Maven que usan las construcciones de los backends.
+      - maven-cache:/root/.m2
+    networks:
+      - case-tool
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.api.rule: Host(`${DOMAIN}`) && PathPrefix(`/api`)
+      traefik.http.routers.api.entrypoints: websecure
+      traefik.http.routers.api.tls.certresolver: le
+      # El backend no sabe nada de ese /api: se lo quita el proxy. Es el editor
+      # quien lo pone, con VITE_API_URL=https://<dominio>/api.
+      traefik.http.routers.api.middlewares: api-strip
+      traefik.http.middlewares.api-strip.stripprefix.prefixes: /api
+      traefik.http.services.api.loadbalancer.server.port: "3000"
+
+  web:
+    build:
+      context: ..
+      dockerfile: frontend/Dockerfile
+      args:
+        # En tiempo de construcción, no de ejecución: Vite lo incrusta en el
+        # JavaScript. Cambiar de dominio obliga a reconstruir esta imagen.
+        VITE_API_URL: https://${DOMAIN}/api
+    image: case-tool/web
+    restart: unless-stopped
+    networks:
+      - case-tool
+    labels:
+      traefik.enable: "true"
+      # Sin PathPrefix: es lo que queda cuando ninguna regla más específica
+      # gana. Traefik ordena por longitud de la regla, así que /api y los
+      # /d/<slug> de los backends publicados se atienden antes que esto.
+      traefik.http.routers.web.rule: Host(`${DOMAIN}`)
+      traefik.http.routers.web.entrypoints: websecure
+      traefik.http.routers.web.tls.certresolver: le
+      traefik.http.services.web.loadbalancer.server.port: "80"

@@ -166,5 +166,10 @@ export const api = {
   /** POST multipart/form-data: CU05 sube así la imagen del diagrama. */
   upload: <T>(path: string, form: FormData) => request<T>(path, { method: 'POST', form }),
   patch: <T>(path: string, body: unknown) => request<T>(path, { method: 'PATCH', body }),
-  delete: (path: string) => request<void>(path, { method: 'DELETE' }),
+  /**
+   * Casi todos los borrados no devuelven nada, pero alguno sí: dar de baja un
+   * despliegue contesta con cómo quedó. Por eso el tipo es opcional y su valor
+   * por defecto es «nada».
+   */
+  delete: <T = void>(path: string) => request<T>(path, { method: 'DELETE' }),
 }

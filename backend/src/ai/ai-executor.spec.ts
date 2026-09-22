@@ -111,3 +111,71 @@ describe('CU04 — una instrucción dudosa se rechaza', () => {
     expect(plan.rejections.join(' ')).toContain('*..0');
   });
 });
+
+describe('CU04/CU05 — la clave primaria no se añade como atributo', () => {
+  /**
+   * Es el caso corriente: se dicta «crea Cliente con id, nombre y correo», o la
+   * foto trae dibujada la columna «id». La clave primaria la pone la
+   * herramienta en toda entidad, así que ese atributo se descarta con un aviso
+   * en lugar de rechazar la instrucción entera.
+   */
+  const conId: RawAction = {
+    action: 'CREATE_CLASS',
+    className: 'Cliente',
+    attributes: [
+      { name: 'id', type: 'Long' },
+      { name: 'nombre', type: 'String' },
+    ],
+    position: null,
+  };
+
+  it('crea la clase con los demás atributos y lo dice', () => {
+    const plan = executor.plan(diagramWith(), [conId], 'reject');
+
+    expect(plan.rejections).toEqual([]);
+    expect(plan.steps).toHaveLength(1);
+
+    const step = plan.steps[0];
+    expect(step.kind).toBe('CREATE_CLASS');
+    if (step.kind !== 'CREATE_CLASS') return;
+
+    expect(step.attributes.map((attribute) => attribute.name)).toEqual(['nombre']);
+    expect(plan.warnings.join(' ')).toContain('«id»');
+  });
+
+  it('renombrar un atributo a «id» sí se rechaza', () => {
+    const diagram = diagramWith('Cliente');
+    diagram.classes[0].attributes = [
+      {
+        id: 'a0',
+        class_id: 'c0',
+        name: 'codigo',
+        data_type: 'String',
+        visibility: 'private',
+        is_nullable: true,
+        is_unique: false,
+        default_value: null,
+        order_index: 0,
+        created_at: diagram.created_at,
+        updated_at: diagram.updated_at,
+      },
+    ];
+
+    const plan = executor.plan(
+      diagram,
+      [
+        {
+          action: 'UPDATE_ATTRIBUTE',
+          className: 'Cliente',
+          attributeName: 'codigo',
+          newName: 'id',
+          newType: null,
+        },
+      ],
+      'reject',
+    );
+
+    expect(plan.steps).toEqual([]);
+    expect(plan.rejections.join(' ')).toContain('«id»');
+  });
+});

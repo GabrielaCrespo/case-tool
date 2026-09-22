@@ -65,6 +65,18 @@ final class ResourceWriter {
               <artifactId>spring-boot-starter-data-jpa</artifactId>
             </dependency>
 
+            <!-- Comprueba lo que el diagrama marcó: obligatorios y longitudes. -->
+            <dependency>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-starter-validation</artifactId>
+            </dependency>
+
+            <!-- /actuator/health: con qué se sabe que el backend ya arrancó. -->
+            <dependency>
+              <groupId>org.springframework.boot</groupId>
+              <artifactId>spring-boot-starter-actuator</artifactId>
+            </dependency>
+
             <dependency>
               <groupId>org.postgresql</groupId>
               <artifactId>postgresql</artifactId>
@@ -123,10 +135,64 @@ final class ResourceWriter {
 
         # --------------------------------------------------------------------- HTTP
         server.port=${PORT:8080}
+
+        # Varios backends generados conviven detrás del mismo dominio, cada uno
+        # bajo su propio prefijo. La aplicación lo sabe en vez de que el proxy se
+        # lo recorte, y así las rutas que devuelve siguen siendo las buenas.
+        # Vacío mientras se ejecuta en el portátil de quien lo descargó.
+        server.servlet.context-path=${CONTEXT_PATH:}
+
+        # Lo único que se publica de actuator: si está vivo. Es lo que mira
+        # quien lo despliega para saber que ya terminó de arrancar.
+        management.endpoints.web.exposure.include=health
+
+        # Los orígenes desde los que se admiten peticiones los lee
+        # CorsConfiguration de la variable CORS_ORIGINS.
         """
         .replace("{diagram}", blueprint.model().name())
         .replace("{artifact}", blueprint.artifactId())
         .replace("{database}", databaseName());
+  }
+
+  /**
+   * La imagen del backend generado, en dos etapas.
+   *
+   * <p>La primera compila con Maven y la segunda se queda sólo con el jar sobre
+   * un JRE, que es una imagen mucho más pequeña y sin herramientas de
+   * construcción dentro. El {@code pom.xml} se copia y se resuelven las
+   * dependencias antes que el código: mientras el pom no cambie, Docker
+   * reutiliza esa capa y no vuelve a descargar medio Maven en cada generación.
+   */
+  String dockerfile() {
+    return """
+        # Generado por CASE-Tool (CU07) a partir del diagrama «{diagram}».
+        FROM maven:3.9-eclipse-temurin-21 AS build
+        WORKDIR /app
+        COPY pom.xml .
+        RUN mvn -B -q dependency:go-offline
+        COPY src ./src
+        RUN mvn -B -q package -DskipTests
+
+        FROM eclipse-temurin:21-jre
+        WORKDIR /app
+        COPY --from=build /app/target/*.jar app.jar
+        EXPOSE 8080
+        ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+        """
+        .replace("{diagram}", blueprint.model().name());
+  }
+
+  /**
+   * Lo que no tiene que entrar en la imagen. {@code target/} son los .class de
+   * una compilación anterior —la imagen compila de cero— y el .zip es el propio
+   * proyecto empaquetado para descargar.
+   */
+  String dockerignore() {
+    return """
+        target/
+        *.zip
+        .git/
+        """;
   }
 
   String readme() {
@@ -159,6 +225,22 @@ final class ResourceWriter {
         DB_URL=jdbc:postgresql://localhost:5432/otra DB_USER=usuario DB_PASSWORD=clave mvn spring-boot:run
         ```
 
+        ## Con Docker, sin instalar nada
+
+        ```bash
+        docker build -t {database} .
+        docker run -p 8080:8080 -e DB_URL=jdbc:postgresql://host.docker.internal:5432/{database} {database}
+        ```
+
+        ## Variables de entorno
+
+        | Variable | Para qué | Por defecto |
+        |---|---|---|
+        | `DB_URL`, `DB_USER`, `DB_PASSWORD` | A qué PostgreSQL se conecta. | `localhost:5432/{database}`, `postgres`/`postgres` |
+        | `PORT` | Puerto en el que escucha. | `8080` |
+        | `CONTEXT_PATH` | Prefijo bajo el que responde, para convivir con otros backends tras un mismo dominio. | vacío |
+        | `CORS_ORIGINS` | Desde qué orígenes se admiten peticiones. | `*` |
+
         ## Estructura
 
         | Carpeta | Qué contiene |
@@ -179,7 +261,20 @@ final class ResourceWriter {
   }
 
   private String endpoints() {
-    StringBuilder out = new StringBuilder("## API\n\n");
+    StringBuilder out =
+        new StringBuilder(
+            """
+            ## API
+
+            | Método | Ruta | Qué hace |
+            |---|---|---|
+            | GET | `/api/_meta` | Describe el modelo: entidades, campos, tipos y relaciones. |
+            | GET | `/actuator/health` | Dice si ya arrancó. |
+
+            `/api/_meta` es lo que lee la aplicación móvil de CASE-Tool para armar
+            sus listas y sus formularios sin saber nada de este diagrama.
+
+            """);
     boolean any = false;
 
     for (EntityPlan plan : blueprint.entities()) {
@@ -220,15 +315,15 @@ final class ResourceWriter {
       for (UmlClass realized : plan.interfaces()) {
         out.append("- Implementa `").append(realized.name()).append("`.\n");
       }
-      EntityPlan.Id id = blueprint.identifierFor(plan);
-      if (plan.declaresId()) {
-        out.append("- Clave primaria `")
-            .append(id.name())
-            .append("`")
-            .append(id.synthetic() ? " (añadida por el generador)" : "")
-            .append(id.generated() ? ", autogenerada" : "")
-            .append(".\n");
+      out.append("- Clave primaria `")
+          .append(EntityPlan.ID_NAME)
+          .append("` (")
+          .append(EntityPlan.ID_TYPE.simpleName())
+          .append(" autogenerada");
+      if (!plan.declaresId()) {
+        out.append(", heredada de `").append(plan.parent().name()).append("`");
       }
+      out.append(").\n");
       for (Link link : plan.links()) {
         out.append("- `")
             .append(link.field())

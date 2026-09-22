@@ -50,10 +50,15 @@ no repositorio ni endpoints: no se puede instanciar.
 
 ### Claves primarias
 
-Se usa el atributo marcado como clave primaria. Si no hay ninguno, se toma un
-atributo llamado `id`, y si tampoco lo hay se añade un `Long id` autogenerado.
-Se autogeneran las claves `Long`, `Integer` y `UUID`; una clave `String` o una
-fecha la trae quien da de alta el registro.
+Toda entidad lleva la misma: un `Long id` con
+`@GeneratedValue(strategy = IDENTITY)`, que en PostgreSQL es una columna
+`BIGSERIAL`. No se lee del diagrama y no hay nada que elegir.
+
+Es así porque la clave primaria no se dibuja: la herramienta no deja declararla
+como atributo, para que no lleguen aquí los casos que impedían generar —dos
+atributos marcados como clave, una clave sin tipo, o de un tipo que la base no
+sabe autogenerar—. Un atributo llamado `id` que venga de un diagrama guardado
+antes de esa regla se omite, y se dice en `informe.json`.
 
 Una subclase no declara `@Id`: lo hereda, como en Java.
 

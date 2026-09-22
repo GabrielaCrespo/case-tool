@@ -10,9 +10,9 @@ namespace public {
     createdAt          TimestamptzString    @default(now()) @map("created_at")
     updatedAt          TimestamptzString    @default(now()) @map("updated_at")
     aiCommandLogs      AiCommandLogs[]
+    backendDeployments BackendDeployments[]
     codeGenerationJobs CodeGenerationJobs[]
     diagramChangeLogs  DiagramChangeLog[]
-    diagramVersions    DiagramVersions[]
     diagrams           Diagrams[]
     photoImportJobs    PhotoImportJobs[]
     projectMembers     ProjectMembers[]
@@ -43,15 +43,13 @@ namespace public {
     projectId          Uuid                 @map("project_id")
     name               VarChar(150)
     description        String?
-    crdtState          Bytes?               @map("crdt_state")
-    crdtStateVector    Bytes?               @map("crdt_state_vector")
     createdBy          Uuid                 @map("created_by")
     createdAt          TimestamptzString    @default(now()) @map("created_at")
     updatedAt          TimestamptzString    @default(now()) @map("updated_at")
     aiCommandLogs      AiCommandLogs[]
+    backendDeployments BackendDeployments[]
     codeGenerationJobs CodeGenerationJobs[]
     diagramChangeLogs  DiagramChangeLog[]
-    diagramVersions    DiagramVersions[]
     photoImportJobs    PhotoImportJobs[]
     umlClasses         UmlClasses[]
     umlRelationships   UmlRelationships[]
@@ -92,15 +90,48 @@ namespace public {
     status             pg.enum(CodegenStatus) @default("PENDING")
     outputArtifactUrl  VarChar(500)?          @map("output_artifact_url")
     compileCheckPassed Boolean?               @map("compile_check_passed")
+    // Si el backend generado no sólo compiló, sino que además arrancó contra
+    // una PostgreSQL de verdad y contestó. NULL = no se llegó a probarlo,
+    // porque la comprobación es opcional (SMOKE_DB_URL en codegen.service.ts).
+    smokeCheckPassed   Boolean?               @map("smoke_check_passed")
     errorMessage       String?                @map("error_message")
     createdAt          TimestamptzString      @default(now()) @map("created_at")
     completedAt        TimestamptzString?     @map("completed_at")
     diagram            Diagrams               @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "code_generation_jobs_diagram_id_fkey")
     users              Users                  @relation(fields:[requestedBy], references:[id], map: "code_generation_jobs_requested_by_fkey", index: false)
+    backendDeployments BackendDeployments[]
 
     @@index([diagramId], map: "idx_code_generation_jobs_diagram")
     @@rls
     @@map("code_generation_jobs")
+  }
+
+  // Un backend generado puesto en marcha y accesible por una URL pública.
+  //
+  // Uno por diagrama: publicar otra vez reemplaza el contenedor anterior en
+  // lugar de acumular despliegues, que es lo que cabe en una instancia donde
+  // cada backend Spring Boot ocupa entre 250 y 400 MB.
+  model BackendDeployments {
+    id             Uuid                       @id(map: "backend_deployments_pkey") @default(dbgenerated("gen_random_uuid()"))
+    diagramId      Uuid                       @unique(map: "backend_deployments_diagram_id_key") @map("diagram_id")
+    jobId          Uuid?                      @map("job_id")
+    requestedBy    Uuid                       @map("requested_by")
+    status         pg.enum(DeploymentStatus)  @default("PENDING")
+    slug           VarChar(100)
+    apiUrl         VarChar(500)?              @map("api_url")
+    containerName  VarChar(100)?              @map("container_name")
+    databaseName   VarChar(63)?               @map("database_name")
+    imageTag       VarChar(200)?              @map("image_tag")
+    errorMessage   String?                    @map("error_message")
+    createdAt      TimestamptzString          @default(now()) @map("created_at")
+    updatedAt      TimestamptzString          @default(now()) @map("updated_at")
+    deployedAt     TimestamptzString?         @map("deployed_at")
+    diagram        Diagrams                   @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "backend_deployments_diagram_id_fkey")
+    job            CodeGenerationJobs?        @relation(fields:[jobId], references:[id], onDelete: SetNull, map: "backend_deployments_job_id_fkey", index: false)
+    user           Users                      @relation(fields:[requestedBy], references:[id], map: "backend_deployments_requested_by_fkey", index: false)
+
+    @@rls
+    @@map("backend_deployments")
   }
 
   model DiagramChangeLog {
@@ -121,31 +152,13 @@ namespace public {
     @@map("diagram_change_log")
   }
 
-  model DiagramVersions {
-    id            Uuid              @id(map: "diagram_versions_pkey") @default(dbgenerated("gen_random_uuid()"))
-    diagramId     Uuid              @map("diagram_id")
-    versionNumber Int               @map("version_number")
-    crdtSnapshot  Bytes             @map("crdt_snapshot")
-    createdBy     Uuid?             @map("created_by")
-    createdAt     TimestamptzString @default(now()) @map("created_at")
-    users         Users?            @relation(fields:[createdBy], references:[id], map: "diagram_versions_created_by_fkey", index: false)
-    diagram       Diagrams          @relation(fields:[diagramId], references:[id], onDelete: Cascade, map: "diagram_versions_diagram_id_fkey")
-
-    @@unique([diagramId, versionNumber], map: "diagram_versions_diagram_id_version_number_key")
-    @@index([diagramId], map: "idx_diagram_versions_diagram")
-    @@rls
-    @@map("diagram_versions")
-  }
-
   model PhotoImportJobs {
     id             Uuid               @id(map: "photo_import_jobs_pkey") @default(dbgenerated("gen_random_uuid()"))
     diagramId      Uuid?              @map("diagram_id")
     userId         Uuid               @map("user_id")
-    imageUrl       VarChar(500)       @map("image_url")
-    // CU05 — Referencia a la imagen original guardada en Cloudinary. El binario
-    // no se guarda aquí: con el public_id se puede volver a ella o borrarla, y
-    // el nombre, el tipo y el tamaño son lo que el usuario subió.
-    cloudinaryPublicId VarChar(255)   @map("cloudinary_public_id")
+    // CU05 — De la imagen queda su descripción, nunca la imagen: se le enseña
+    // al modelo en la misma petición en la que llega y se descarta. Lo que se
+    // leyó de ella está en extracted_model.
     originalFileName   VarChar(255)   @map("original_file_name")
     mimeType           VarChar(100)   @map("mime_type")
     fileSize           Int            @map("file_size")
@@ -215,6 +228,9 @@ namespace public {
     // atributo sin nombre no es nada.
     dataType     VarChar(50)?      @map("data_type")
     visibility   pg.enum(UmlVisibility) @default("private")
+    // Ya no se usa: la clave primaria de toda entidad es «id», la pone la
+    // herramienta y no se declara como atributo (PRIMARY_KEY en uml-catalog.ts).
+    // Ningún servicio la lee ni la escribe; queda sólo por las filas guardadas.
     isPrimaryKey Boolean           @default(false) @map("is_primary_key")
     isNullable   Boolean           @default(true) @map("is_nullable")
     isUnique     Boolean           @default(false) @map("is_unique")
@@ -292,7 +308,11 @@ namespace public {
     diagramId    Uuid                  @map("diagram_id")
     userId       Uuid                  @map("user_id")
     direction    pg.enum(XmiDirection)
-    fileUrl      VarChar(500)          @map("file_url")
+    // CU06 — El nombre del archivo, no el archivo: igual que en CU05, lo que
+    // queda de un intercambio es su registro —quién, cuándo y qué archivo— y
+    // no su contenido. El .xmi se genera al vuelo al exportar y se descarta
+    // después de leerlo al importar.
+    fileName     VarChar(255)          @map("file_name")
     status       pg.enum(JobStatus)    @default("PENDING")
     errorMessage String?               @map("error_message")
     createdAt    TimestamptzString     @default(now()) @map("created_at")
@@ -322,11 +342,27 @@ namespace public {
     @@map("codegen_status")
   }
 
+  native_enum DeploymentStatus {
+    PENDING = "PENDING"
+    BUILDING = "BUILDING"
+    STARTING = "STARTING"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+    STOPPED = "STOPPED"
+
+    @@map("deployment_status")
+  }
+
   native_enum DiagramEntityType {
     CLASS = "CLASS"
     ATTRIBUTE = "ATTRIBUTE"
     METHOD = "METHOD"
     RELATIONSHIP = "RELATIONSHIP"
+    // El propio diagrama: cambiarle el nombre o la descripción también es un
+    // cambio que la bitácora registra. Va al final y no donde tendría más
+    // sentido leerlo porque PostgreSQL sólo sabe añadir valores a un
+    // enumerado: reordenarlos obligaría a rehacer el tipo entero.
+    DIAGRAM = "DIAGRAM"
 
     @@map("diagram_entity_type")
   }

@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'2f69bfe96f3358b064dac1ddc5ebbe290d1295478254b5ac9ba89994ab7345a0'>;
+  StorageHashBase<'18ca028a38acaf17fc89e415c288f82756b72afde4aa0efe1900ad0793c7142d'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -254,6 +254,22 @@ export type FieldOutputTypes = {
       readonly errorMessage: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
+    readonly BackendDeployments: {
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly diagramId: CodecTypes['pg/uuid@1']['output'];
+      readonly jobId: CodecTypes['pg/uuid@1']['output'] | null;
+      readonly requestedBy: CodecTypes['pg/uuid@1']['output'];
+      readonly status: 'PENDING' | 'BUILDING' | 'STARTING' | 'RUNNING' | 'FAILED' | 'STOPPED';
+      readonly slug: Varchar<100>;
+      readonly apiUrl: Varchar<500> | null;
+      readonly containerName: Varchar<100> | null;
+      readonly databaseName: Varchar<63> | null;
+      readonly imageTag: Varchar<200> | null;
+      readonly errorMessage: CodecTypes['pg/text@1']['output'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly deployedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    };
     readonly CodeGenerationJobs: {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly diagramId: CodecTypes['pg/uuid@1']['output'];
@@ -261,6 +277,7 @@ export type FieldOutputTypes = {
       readonly status: 'PENDING' | 'GENERATING' | 'COMPILING' | 'SUCCESS' | 'FAILED';
       readonly outputArtifactUrl: Varchar<500> | null;
       readonly compileCheckPassed: CodecTypes['pg/bool@1']['output'] | null;
+      readonly smokeCheckPassed: CodecTypes['pg/bool@1']['output'] | null;
       readonly errorMessage: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly completedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -270,7 +287,7 @@ export type FieldOutputTypes = {
       readonly diagramId: CodecTypes['pg/uuid@1']['output'];
       readonly userId: CodecTypes['pg/uuid@1']['output'];
       readonly operationType: Varchar<50>;
-      readonly entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP';
+      readonly entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP' | 'DIAGRAM';
       readonly entityId: CodecTypes['pg/uuid@1']['output'] | null;
       readonly payload: CodecTypes['pg/jsonb@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -280,26 +297,14 @@ export type FieldOutputTypes = {
       readonly projectId: CodecTypes['pg/uuid@1']['output'];
       readonly name: Varchar<150>;
       readonly description: CodecTypes['pg/text@1']['output'] | null;
-      readonly crdtState: CodecTypes['pg/bytea@1']['output'] | null;
-      readonly crdtStateVector: CodecTypes['pg/bytea@1']['output'] | null;
       readonly createdBy: CodecTypes['pg/uuid@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
-    };
-    readonly DiagramVersions: {
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly diagramId: CodecTypes['pg/uuid@1']['output'];
-      readonly versionNumber: CodecTypes['pg/int4@1']['output'];
-      readonly crdtSnapshot: CodecTypes['pg/bytea@1']['output'];
-      readonly createdBy: CodecTypes['pg/uuid@1']['output'] | null;
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly PhotoImportJobs: {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly diagramId: CodecTypes['pg/uuid@1']['output'] | null;
       readonly userId: CodecTypes['pg/uuid@1']['output'];
-      readonly imageUrl: Varchar<500>;
-      readonly cloudinaryPublicId: Varchar<255>;
       readonly originalFileName: Varchar<255>;
       readonly mimeType: Varchar<100>;
       readonly fileSize: CodecTypes['pg/int4@1']['output'];
@@ -405,7 +410,7 @@ export type FieldOutputTypes = {
       readonly diagramId: CodecTypes['pg/uuid@1']['output'];
       readonly userId: CodecTypes['pg/uuid@1']['output'];
       readonly direction: 'IMPORT' | 'EXPORT';
-      readonly fileUrl: Varchar<500>;
+      readonly fileName: Varchar<255>;
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
       readonly errorMessage: CodecTypes['pg/text@1']['output'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -428,6 +433,22 @@ export type FieldInputTypes = {
       readonly errorMessage: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
+    readonly BackendDeployments: {
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly diagramId: CodecTypes['pg/uuid@1']['input'];
+      readonly jobId: CodecTypes['pg/uuid@1']['input'] | null;
+      readonly requestedBy: CodecTypes['pg/uuid@1']['input'];
+      readonly status: 'PENDING' | 'BUILDING' | 'STARTING' | 'RUNNING' | 'FAILED' | 'STOPPED';
+      readonly slug: CodecTypes['sql/varchar@1']['input'];
+      readonly apiUrl: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly containerName: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly databaseName: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly imageTag: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly errorMessage: CodecTypes['pg/text@1']['input'] | null;
+      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly deployedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+    };
     readonly CodeGenerationJobs: {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly diagramId: CodecTypes['pg/uuid@1']['input'];
@@ -435,6 +456,7 @@ export type FieldInputTypes = {
       readonly status: 'PENDING' | 'GENERATING' | 'COMPILING' | 'SUCCESS' | 'FAILED';
       readonly outputArtifactUrl: CodecTypes['sql/varchar@1']['input'] | null;
       readonly compileCheckPassed: CodecTypes['pg/bool@1']['input'] | null;
+      readonly smokeCheckPassed: CodecTypes['pg/bool@1']['input'] | null;
       readonly errorMessage: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly completedAt: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -444,7 +466,7 @@ export type FieldInputTypes = {
       readonly diagramId: CodecTypes['pg/uuid@1']['input'];
       readonly userId: CodecTypes['pg/uuid@1']['input'];
       readonly operationType: CodecTypes['sql/varchar@1']['input'];
-      readonly entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP';
+      readonly entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP' | 'DIAGRAM';
       readonly entityId: CodecTypes['pg/uuid@1']['input'] | null;
       readonly payload: CodecTypes['pg/jsonb@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -454,26 +476,14 @@ export type FieldInputTypes = {
       readonly projectId: CodecTypes['pg/uuid@1']['input'];
       readonly name: CodecTypes['sql/varchar@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
-      readonly crdtState: CodecTypes['pg/bytea@1']['input'] | null;
-      readonly crdtStateVector: CodecTypes['pg/bytea@1']['input'] | null;
       readonly createdBy: CodecTypes['pg/uuid@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
-    };
-    readonly DiagramVersions: {
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly diagramId: CodecTypes['pg/uuid@1']['input'];
-      readonly versionNumber: CodecTypes['pg/int4@1']['input'];
-      readonly crdtSnapshot: CodecTypes['pg/bytea@1']['input'];
-      readonly createdBy: CodecTypes['pg/uuid@1']['input'] | null;
-      readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly PhotoImportJobs: {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly diagramId: CodecTypes['pg/uuid@1']['input'] | null;
       readonly userId: CodecTypes['pg/uuid@1']['input'];
-      readonly imageUrl: CodecTypes['sql/varchar@1']['input'];
-      readonly cloudinaryPublicId: CodecTypes['sql/varchar@1']['input'];
       readonly originalFileName: CodecTypes['sql/varchar@1']['input'];
       readonly mimeType: CodecTypes['sql/varchar@1']['input'];
       readonly fileSize: CodecTypes['pg/int4@1']['input'];
@@ -579,7 +589,7 @@ export type FieldInputTypes = {
       readonly diagramId: CodecTypes['pg/uuid@1']['input'];
       readonly userId: CodecTypes['pg/uuid@1']['input'];
       readonly direction: 'IMPORT' | 'EXPORT';
-      readonly fileUrl: CodecTypes['sql/varchar@1']['input'];
+      readonly fileName: CodecTypes['sql/varchar@1']['input'];
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
       readonly errorMessage: CodecTypes['pg/text@1']['input'] | null;
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -602,6 +612,22 @@ export type StorageColumnTypes = {
       readonly transcribed_text: CodecTypes['pg/text@1']['output'] | null;
       readonly user_id: CodecTypes['pg/uuid@1']['output'];
     };
+    readonly backend_deployments: {
+      readonly api_url: Varchar<500> | null;
+      readonly container_name: Varchar<100> | null;
+      readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
+      readonly database_name: Varchar<63> | null;
+      readonly deployed_at: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+      readonly diagram_id: CodecTypes['pg/uuid@1']['output'];
+      readonly error_message: CodecTypes['pg/text@1']['output'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly image_tag: Varchar<200> | null;
+      readonly job_id: CodecTypes['pg/uuid@1']['output'] | null;
+      readonly requested_by: CodecTypes['pg/uuid@1']['output'];
+      readonly slug: Varchar<100>;
+      readonly status: 'PENDING' | 'BUILDING' | 'STARTING' | 'RUNNING' | 'FAILED' | 'STOPPED';
+      readonly updated_at: CodecTypes['pg/timestamptz-string@1']['output'];
+    };
     readonly code_generation_jobs: {
       readonly compile_check_passed: CodecTypes['pg/bool@1']['output'] | null;
       readonly completed_at: CodecTypes['pg/timestamptz-string@1']['output'] | null;
@@ -611,29 +637,20 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly output_artifact_url: Varchar<500> | null;
       readonly requested_by: CodecTypes['pg/uuid@1']['output'];
+      readonly smoke_check_passed: CodecTypes['pg/bool@1']['output'] | null;
       readonly status: 'PENDING' | 'GENERATING' | 'COMPILING' | 'SUCCESS' | 'FAILED';
     };
     readonly diagram_change_log: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly diagram_id: CodecTypes['pg/uuid@1']['output'];
       readonly entity_id: CodecTypes['pg/uuid@1']['output'] | null;
-      readonly entity_type: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP';
+      readonly entity_type: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP' | 'DIAGRAM';
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly operation_type: Varchar<50>;
       readonly payload: CodecTypes['pg/jsonb@1']['output'] | null;
       readonly user_id: CodecTypes['pg/uuid@1']['output'];
     };
-    readonly diagram_versions: {
-      readonly crdt_snapshot: CodecTypes['pg/bytea@1']['output'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
-      readonly created_by: CodecTypes['pg/uuid@1']['output'] | null;
-      readonly diagram_id: CodecTypes['pg/uuid@1']['output'];
-      readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly version_number: CodecTypes['pg/int4@1']['output'];
-    };
     readonly diagrams: {
-      readonly crdt_state: CodecTypes['pg/bytea@1']['output'] | null;
-      readonly crdt_state_vector: CodecTypes['pg/bytea@1']['output'] | null;
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly created_by: CodecTypes['pg/uuid@1']['output'];
       readonly description: CodecTypes['pg/text@1']['output'] | null;
@@ -643,7 +660,6 @@ export type StorageColumnTypes = {
       readonly updated_at: CodecTypes['pg/timestamptz-string@1']['output'];
     };
     readonly photo_import_jobs: {
-      readonly cloudinary_public_id: Varchar<255>;
       readonly completed_at: CodecTypes['pg/timestamptz-string@1']['output'] | null;
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly diagram_id: CodecTypes['pg/uuid@1']['output'] | null;
@@ -651,7 +667,6 @@ export type StorageColumnTypes = {
       readonly extracted_model: CodecTypes['pg/jsonb@1']['output'] | null;
       readonly file_size: CodecTypes['pg/int4@1']['output'];
       readonly id: CodecTypes['pg/uuid@1']['output'];
-      readonly image_url: Varchar<500>;
       readonly mime_type: Varchar<100>;
       readonly original_file_name: Varchar<255>;
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -754,7 +769,7 @@ export type StorageColumnTypes = {
       readonly diagram_id: CodecTypes['pg/uuid@1']['output'];
       readonly direction: 'IMPORT' | 'EXPORT';
       readonly error_message: CodecTypes['pg/text@1']['output'] | null;
-      readonly file_url: Varchar<500>;
+      readonly file_name: Varchar<255>;
       readonly id: CodecTypes['pg/uuid@1']['output'];
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
       readonly user_id: CodecTypes['pg/uuid@1']['output'];
@@ -776,6 +791,22 @@ export type StorageColumnInputTypes = {
       readonly transcribed_text: CodecTypes['pg/text@1']['input'] | null;
       readonly user_id: CodecTypes['pg/uuid@1']['input'];
     };
+    readonly backend_deployments: {
+      readonly api_url: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly container_name: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
+      readonly database_name: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly deployed_at: CodecTypes['pg/timestamptz-string@1']['input'] | null;
+      readonly diagram_id: CodecTypes['pg/uuid@1']['input'];
+      readonly error_message: CodecTypes['pg/text@1']['input'] | null;
+      readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly image_tag: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly job_id: CodecTypes['pg/uuid@1']['input'] | null;
+      readonly requested_by: CodecTypes['pg/uuid@1']['input'];
+      readonly slug: CodecTypes['sql/varchar@1']['input'];
+      readonly status: 'PENDING' | 'BUILDING' | 'STARTING' | 'RUNNING' | 'FAILED' | 'STOPPED';
+      readonly updated_at: CodecTypes['pg/timestamptz-string@1']['input'];
+    };
     readonly code_generation_jobs: {
       readonly compile_check_passed: CodecTypes['pg/bool@1']['input'] | null;
       readonly completed_at: CodecTypes['pg/timestamptz-string@1']['input'] | null;
@@ -785,29 +816,20 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly output_artifact_url: CodecTypes['sql/varchar@1']['input'] | null;
       readonly requested_by: CodecTypes['pg/uuid@1']['input'];
+      readonly smoke_check_passed: CodecTypes['pg/bool@1']['input'] | null;
       readonly status: 'PENDING' | 'GENERATING' | 'COMPILING' | 'SUCCESS' | 'FAILED';
     };
     readonly diagram_change_log: {
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly diagram_id: CodecTypes['pg/uuid@1']['input'];
       readonly entity_id: CodecTypes['pg/uuid@1']['input'] | null;
-      readonly entity_type: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP';
+      readonly entity_type: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP' | 'DIAGRAM';
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly operation_type: CodecTypes['sql/varchar@1']['input'];
       readonly payload: CodecTypes['pg/jsonb@1']['input'] | null;
       readonly user_id: CodecTypes['pg/uuid@1']['input'];
     };
-    readonly diagram_versions: {
-      readonly crdt_snapshot: CodecTypes['pg/bytea@1']['input'];
-      readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
-      readonly created_by: CodecTypes['pg/uuid@1']['input'] | null;
-      readonly diagram_id: CodecTypes['pg/uuid@1']['input'];
-      readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly version_number: CodecTypes['pg/int4@1']['input'];
-    };
     readonly diagrams: {
-      readonly crdt_state: CodecTypes['pg/bytea@1']['input'] | null;
-      readonly crdt_state_vector: CodecTypes['pg/bytea@1']['input'] | null;
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly created_by: CodecTypes['pg/uuid@1']['input'];
       readonly description: CodecTypes['pg/text@1']['input'] | null;
@@ -817,7 +839,6 @@ export type StorageColumnInputTypes = {
       readonly updated_at: CodecTypes['pg/timestamptz-string@1']['input'];
     };
     readonly photo_import_jobs: {
-      readonly cloudinary_public_id: CodecTypes['sql/varchar@1']['input'];
       readonly completed_at: CodecTypes['pg/timestamptz-string@1']['input'] | null;
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly diagram_id: CodecTypes['pg/uuid@1']['input'] | null;
@@ -825,7 +846,6 @@ export type StorageColumnInputTypes = {
       readonly extracted_model: CodecTypes['pg/jsonb@1']['input'] | null;
       readonly file_size: CodecTypes['pg/int4@1']['input'];
       readonly id: CodecTypes['pg/uuid@1']['input'];
-      readonly image_url: CodecTypes['sql/varchar@1']['input'];
       readonly mime_type: CodecTypes['sql/varchar@1']['input'];
       readonly original_file_name: CodecTypes['sql/varchar@1']['input'];
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -928,7 +948,7 @@ export type StorageColumnInputTypes = {
       readonly diagram_id: CodecTypes['pg/uuid@1']['input'];
       readonly direction: 'IMPORT' | 'EXPORT';
       readonly error_message: CodecTypes['pg/text@1']['input'] | null;
-      readonly file_url: CodecTypes['sql/varchar@1']['input'];
+      readonly file_name: CodecTypes['sql/varchar@1']['input'];
       readonly id: CodecTypes['pg/uuid@1']['input'];
       readonly status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
       readonly user_id: CodecTypes['pg/uuid@1']['input'];
@@ -946,9 +966,9 @@ export namespace Models {
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     aiCommandLogs: public_AiCommandLogs[];
+    backendDeployments: public_BackendDeployments[];
     codeGenerationJobs: public_CodeGenerationJobs[];
     diagramChangeLogs: public_DiagramChangeLog[];
-    diagramVersions: public_DiagramVersions[];
     diagrams: public_Diagrams[];
     photoImportJobs: public_PhotoImportJobs[];
     projectMembers: public_ProjectMembers[];
@@ -956,9 +976,9 @@ export namespace Models {
     xmiExchangeJobs: public_XmiExchangeJobs[];
     readonly [RelationKeys]?:
       | 'aiCommandLogs'
+      | 'backendDeployments'
       | 'codeGenerationJobs'
       | 'diagramChangeLogs'
-      | 'diagramVersions'
       | 'diagrams'
       | 'photoImportJobs'
       | 'projectMembers'
@@ -982,15 +1002,13 @@ export namespace Models {
     projectId: CodecTypes['pg/uuid@1']['output'];
     name: Varchar<150>;
     description: CodecTypes['pg/text@1']['output'] | null;
-    crdtState: CodecTypes['pg/bytea@1']['output'] | null;
-    crdtStateVector: CodecTypes['pg/bytea@1']['output'] | null;
     createdBy: CodecTypes['pg/uuid@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
     aiCommandLogs: public_AiCommandLogs[];
+    backendDeployments: public_BackendDeployments[];
     codeGenerationJobs: public_CodeGenerationJobs[];
     diagramChangeLogs: public_DiagramChangeLog[];
-    diagramVersions: public_DiagramVersions[];
     photoImportJobs: public_PhotoImportJobs[];
     project: public_Projects;
     umlClasses: public_UmlClasses[];
@@ -999,9 +1017,9 @@ export namespace Models {
     xmiExchangeJobs: public_XmiExchangeJobs[];
     readonly [RelationKeys]?:
       | 'aiCommandLogs'
+      | 'backendDeployments'
       | 'codeGenerationJobs'
       | 'diagramChangeLogs'
-      | 'diagramVersions'
       | 'photoImportJobs'
       | 'project'
       | 'umlClasses'
@@ -1032,19 +1050,41 @@ export namespace Models {
     status: 'PENDING' | 'GENERATING' | 'COMPILING' | 'SUCCESS' | 'FAILED';
     outputArtifactUrl: Varchar<500> | null;
     compileCheckPassed: CodecTypes['pg/bool@1']['output'] | null;
+    smokeCheckPassed: CodecTypes['pg/bool@1']['output'] | null;
     errorMessage: CodecTypes['pg/text@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     completedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    backendDeployments: public_BackendDeployments[];
     diagram: public_Diagrams;
     users: public_Users;
-    readonly [RelationKeys]?: 'diagram' | 'users';
+    readonly [RelationKeys]?: 'backendDeployments' | 'diagram' | 'users';
+  };
+  export type public_BackendDeployments = {
+    id: CodecTypes['pg/uuid@1']['output'];
+    diagramId: CodecTypes['pg/uuid@1']['output'];
+    jobId: CodecTypes['pg/uuid@1']['output'] | null;
+    requestedBy: CodecTypes['pg/uuid@1']['output'];
+    status: 'PENDING' | 'BUILDING' | 'STARTING' | 'RUNNING' | 'FAILED' | 'STOPPED';
+    slug: Varchar<100>;
+    apiUrl: Varchar<500> | null;
+    containerName: Varchar<100> | null;
+    databaseName: Varchar<63> | null;
+    imageTag: Varchar<200> | null;
+    errorMessage: CodecTypes['pg/text@1']['output'] | null;
+    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
+    deployedAt: CodecTypes['pg/timestamptz-string@1']['output'] | null;
+    diagram: public_Diagrams;
+    job: public_CodeGenerationJobs | null;
+    user: public_Users;
+    readonly [RelationKeys]?: 'diagram' | 'job' | 'user';
   };
   export type public_DiagramChangeLog = {
     id: CodecTypes['pg/uuid@1']['output'];
     diagramId: CodecTypes['pg/uuid@1']['output'];
     userId: CodecTypes['pg/uuid@1']['output'];
     operationType: Varchar<50>;
-    entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP';
+    entityType: 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP' | 'DIAGRAM';
     entityId: CodecTypes['pg/uuid@1']['output'] | null;
     payload: CodecTypes['pg/jsonb@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -1052,23 +1092,10 @@ export namespace Models {
     user: public_Users;
     readonly [RelationKeys]?: 'diagram' | 'user';
   };
-  export type public_DiagramVersions = {
-    id: CodecTypes['pg/uuid@1']['output'];
-    diagramId: CodecTypes['pg/uuid@1']['output'];
-    versionNumber: CodecTypes['pg/int4@1']['output'];
-    crdtSnapshot: CodecTypes['pg/bytea@1']['output'];
-    createdBy: CodecTypes['pg/uuid@1']['output'] | null;
-    createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
-    diagram: public_Diagrams;
-    users: public_Users | null;
-    readonly [RelationKeys]?: 'diagram' | 'users';
-  };
   export type public_PhotoImportJobs = {
     id: CodecTypes['pg/uuid@1']['output'];
     diagramId: CodecTypes['pg/uuid@1']['output'] | null;
     userId: CodecTypes['pg/uuid@1']['output'];
-    imageUrl: Varchar<500>;
-    cloudinaryPublicId: Varchar<255>;
     originalFileName: Varchar<255>;
     mimeType: Varchar<100>;
     fileSize: CodecTypes['pg/int4@1']['output'];
@@ -1180,7 +1207,7 @@ export namespace Models {
     diagramId: CodecTypes['pg/uuid@1']['output'];
     userId: CodecTypes['pg/uuid@1']['output'];
     direction: 'IMPORT' | 'EXPORT';
-    fileUrl: Varchar<500>;
+    fileName: Varchar<255>;
     status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
     errorMessage: CodecTypes['pg/text@1']['output'] | null;
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -1198,8 +1225,8 @@ export declare const models: {
     Diagrams: Models.public_Diagrams;
     AiCommandLogs: Models.public_AiCommandLogs;
     CodeGenerationJobs: Models.public_CodeGenerationJobs;
+    BackendDeployments: Models.public_BackendDeployments;
     DiagramChangeLog: Models.public_DiagramChangeLog;
-    DiagramVersions: Models.public_DiagramVersions;
     PhotoImportJobs: Models.public_PhotoImportJobs;
     ProjectMembers: Models.public_ProjectMembers;
     UmlClasses: Models.public_UmlClasses;
@@ -1340,6 +1367,148 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly backend_deployments: {
+              columns: {
+                readonly id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'function';
+                    readonly expression: 'gen_random_uuid()';
+                  };
+                };
+                readonly diagram_id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                };
+                readonly job_id: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: true;
+                };
+                readonly requested_by: {
+                  readonly nativeType: 'uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                };
+                readonly status: {
+                  readonly nativeType: 'deployment_status';
+                  readonly codecId: 'pg/enum@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/enum@1', 'PENDING'>;
+                  };
+                  readonly typeParams: { readonly typeName: 'deployment_status' };
+                };
+                readonly slug: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly length: 100 };
+                };
+                readonly api_url: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 500 };
+                };
+                readonly container_name: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 100 };
+                };
+                readonly database_name: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 63 };
+                };
+                readonly image_tag: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 200 };
+                };
+                readonly error_message: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                };
+                readonly created_at: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly updated_at: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                };
+                readonly deployed_at: {
+                  readonly nativeType: 'timestamptz';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                  readonly nullable: true;
+                };
+              };
+              primaryKey: {
+                readonly columns: readonly ['id'];
+                readonly name: 'backend_deployments_pkey';
+              };
+              uniques: readonly [
+                {
+                  readonly columns: readonly ['diagram_id'];
+                  readonly name: 'backend_deployments_diagram_id_key';
+                },
+              ];
+              indexes: readonly [];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'backend_deployments';
+                    readonly columns: readonly ['diagram_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'diagrams';
+                    readonly columns: readonly ['id'];
+                  };
+                  readonly name: 'backend_deployments_diagram_id_fkey';
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'backend_deployments';
+                    readonly columns: readonly ['job_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'code_generation_jobs';
+                    readonly columns: readonly ['id'];
+                  };
+                  readonly name: 'backend_deployments_job_id_fkey';
+                },
+                {
+                  readonly source: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'backend_deployments';
+                    readonly columns: readonly ['requested_by'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: 'public' & NamespaceId;
+                    readonly tableName: 'users';
+                    readonly columns: readonly ['id'];
+                  };
+                  readonly name: 'backend_deployments_requested_by_fkey';
+                },
+              ];
+            };
             readonly code_generation_jobs: {
               columns: {
                 readonly id: {
@@ -1378,6 +1547,11 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly length: 500 };
                 };
                 readonly compile_check_passed: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: true;
+                };
+                readonly smoke_check_passed: {
                   readonly nativeType: 'bool';
                   readonly codecId: 'pg/bool@1';
                   readonly nullable: true;
@@ -1536,90 +1710,6 @@ type ContractBase = Omit<
                 },
               ];
             };
-            readonly diagram_versions: {
-              columns: {
-                readonly id: {
-                  readonly nativeType: 'uuid';
-                  readonly codecId: 'pg/uuid@1';
-                  readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'function';
-                    readonly expression: 'gen_random_uuid()';
-                  };
-                };
-                readonly diagram_id: {
-                  readonly nativeType: 'uuid';
-                  readonly codecId: 'pg/uuid@1';
-                  readonly nullable: false;
-                };
-                readonly version_number: {
-                  readonly nativeType: 'int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                };
-                readonly crdt_snapshot: {
-                  readonly nativeType: 'bytea';
-                  readonly codecId: 'pg/bytea@1';
-                  readonly nullable: false;
-                };
-                readonly created_by: {
-                  readonly nativeType: 'uuid';
-                  readonly codecId: 'pg/uuid@1';
-                  readonly nullable: true;
-                };
-                readonly created_at: {
-                  readonly nativeType: 'timestamptz';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                  readonly nullable: false;
-                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
-                };
-              };
-              primaryKey: {
-                readonly columns: readonly ['id'];
-                readonly name: 'diagram_versions_pkey';
-              };
-              uniques: readonly [
-                {
-                  readonly columns: readonly ['diagram_id', 'version_number'];
-                  readonly name: 'diagram_versions_diagram_id_version_number_key';
-                },
-              ];
-              indexes: readonly [
-                {
-                  readonly name: 'idx_diagram_versions_diagram';
-                  readonly columns: readonly ['diagram_id'];
-                  readonly unique: false;
-                },
-              ];
-              foreignKeys: readonly [
-                {
-                  readonly source: {
-                    readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'diagram_versions';
-                    readonly columns: readonly ['created_by'];
-                  };
-                  readonly target: {
-                    readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'users';
-                    readonly columns: readonly ['id'];
-                  };
-                  readonly name: 'diagram_versions_created_by_fkey';
-                },
-                {
-                  readonly source: {
-                    readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'diagram_versions';
-                    readonly columns: readonly ['diagram_id'];
-                  };
-                  readonly target: {
-                    readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'diagrams';
-                    readonly columns: readonly ['id'];
-                  };
-                  readonly name: 'diagram_versions_diagram_id_fkey';
-                },
-              ];
-            };
             readonly diagrams: {
               columns: {
                 readonly id: {
@@ -1645,16 +1735,6 @@ type ContractBase = Omit<
                 readonly description: {
                   readonly nativeType: 'text';
                   readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                };
-                readonly crdt_state: {
-                  readonly nativeType: 'bytea';
-                  readonly codecId: 'pg/bytea@1';
-                  readonly nullable: true;
-                };
-                readonly crdt_state_vector: {
-                  readonly nativeType: 'bytea';
-                  readonly codecId: 'pg/bytea@1';
                   readonly nullable: true;
                 };
                 readonly created_by: {
@@ -1733,18 +1813,6 @@ type ContractBase = Omit<
                   readonly nativeType: 'uuid';
                   readonly codecId: 'pg/uuid@1';
                   readonly nullable: false;
-                };
-                readonly image_url: {
-                  readonly nativeType: 'character varying';
-                  readonly codecId: 'sql/varchar@1';
-                  readonly nullable: false;
-                  readonly typeParams: { readonly length: 500 };
-                };
-                readonly cloudinary_public_id: {
-                  readonly nativeType: 'character varying';
-                  readonly codecId: 'sql/varchar@1';
-                  readonly nullable: false;
-                  readonly typeParams: { readonly length: 255 };
                 };
                 readonly original_file_name: {
                   readonly nativeType: 'character varying';
@@ -2627,11 +2695,11 @@ type ContractBase = Omit<
                   readonly nullable: false;
                   readonly typeParams: { readonly typeName: 'xmi_direction' };
                 };
-                readonly file_url: {
+                readonly file_name: {
                   readonly nativeType: 'character varying';
                   readonly codecId: 'sql/varchar@1';
                   readonly nullable: false;
-                  readonly typeParams: { readonly length: 500 };
+                  readonly typeParams: { readonly length: 255 };
                 };
                 readonly status: {
                   readonly nativeType: 'job_status';
@@ -2711,9 +2779,20 @@ type ContractBase = Omit<
               readonly kind: 'valueSet';
               readonly values: readonly ['PENDING', 'GENERATING', 'COMPILING', 'SUCCESS', 'FAILED'];
             };
+            readonly DeploymentStatus: {
+              readonly kind: 'valueSet';
+              readonly values: readonly [
+                'PENDING',
+                'BUILDING',
+                'STARTING',
+                'RUNNING',
+                'FAILED',
+                'STOPPED',
+              ];
+            };
             readonly DiagramEntityType: {
               readonly kind: 'valueSet';
-              readonly values: readonly ['CLASS', 'ATTRIBUTE', 'METHOD', 'RELATIONSHIP'];
+              readonly values: readonly ['CLASS', 'ATTRIBUTE', 'METHOD', 'RELATIONSHIP', 'DIAGRAM'];
             };
             readonly JobStatus: {
               readonly kind: 'valueSet';
@@ -2764,13 +2843,13 @@ type ContractBase = Omit<
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'CodeGenerationJobs';
     };
+    readonly backend_deployments: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'BackendDeployments';
+    };
     readonly diagram_change_log: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'DiagramChangeLog';
-    };
-    readonly diagram_versions: {
-      readonly namespace: 'public' & NamespaceId;
-      readonly model: 'DiagramVersions';
     };
     readonly photo_import_jobs: {
       readonly namespace: 'public' & NamespaceId;
@@ -2915,6 +2994,157 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly BackendDeployments: {
+            readonly fields: {
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly diagramId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly jobId: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly requestedBy: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/enum@1';
+                  readonly typeParams: { readonly typeName: 'deployment_status' };
+                };
+              };
+              readonly slug: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 100 };
+                };
+              };
+              readonly apiUrl: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 500 };
+                };
+              };
+              readonly containerName: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 100 };
+                };
+              };
+              readonly databaseName: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 63 };
+                };
+              };
+              readonly imageTag: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 200 };
+                };
+              };
+              readonly errorMessage: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+              readonly deployedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-string@1';
+                };
+              };
+            };
+            readonly relations: {
+              readonly diagram: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Diagrams';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['diagramId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly job: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'CodeGenerationJobs';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: true;
+                readonly on: {
+                  readonly localFields: readonly ['jobId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly user: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'Users';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['requestedBy'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'backend_deployments';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly id: { readonly column: 'id' };
+                readonly diagramId: { readonly column: 'diagram_id' };
+                readonly jobId: { readonly column: 'job_id' };
+                readonly requestedBy: { readonly column: 'requested_by' };
+                readonly status: { readonly column: 'status' };
+                readonly slug: { readonly column: 'slug' };
+                readonly apiUrl: { readonly column: 'api_url' };
+                readonly containerName: { readonly column: 'container_name' };
+                readonly databaseName: { readonly column: 'database_name' };
+                readonly imageTag: { readonly column: 'image_tag' };
+                readonly errorMessage: { readonly column: 'error_message' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly updatedAt: { readonly column: 'updated_at' };
+                readonly deployedAt: { readonly column: 'deployed_at' };
+              };
+            };
+          };
           readonly CodeGenerationJobs: {
             readonly fields: {
               readonly id: {
@@ -2949,6 +3179,10 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
+              readonly smokeCheckPassed: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly errorMessage: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -2969,6 +3203,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly backendDeployments: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'BackendDeployments';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['jobId'];
+                };
+              };
               readonly diagram: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -3004,6 +3249,7 @@ type ContractBase = Omit<
                 readonly status: { readonly column: 'status' };
                 readonly outputArtifactUrl: { readonly column: 'output_artifact_url' };
                 readonly compileCheckPassed: { readonly column: 'compile_check_passed' };
+                readonly smokeCheckPassed: { readonly column: 'smoke_check_passed' };
                 readonly errorMessage: { readonly column: 'error_message' };
                 readonly createdAt: { readonly column: 'created_at' };
                 readonly completedAt: { readonly column: 'completed_at' };
@@ -3119,14 +3365,6 @@ type ContractBase = Omit<
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
               };
-              readonly crdtState: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bytea@1' };
-              };
-              readonly crdtStateVector: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bytea@1' };
-              };
               readonly createdBy: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
@@ -3158,6 +3396,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['diagramId'];
                 };
               };
+              readonly backendDeployments: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'BackendDeployments';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['diagramId'];
+                };
+              };
               readonly codeGenerationJobs: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -3173,17 +3422,6 @@ type ContractBase = Omit<
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
                   readonly model: 'DiagramChangeLog';
-                };
-                readonly cardinality: '1:N';
-                readonly on: {
-                  readonly localFields: readonly ['id'];
-                  readonly targetFields: readonly ['diagramId'];
-                };
-              };
-              readonly diagramVersions: {
-                readonly to: {
-                  readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'DiagramVersions';
                 };
                 readonly cardinality: '1:N';
                 readonly on: {
@@ -3268,80 +3506,9 @@ type ContractBase = Omit<
                 readonly projectId: { readonly column: 'project_id' };
                 readonly name: { readonly column: 'name' };
                 readonly description: { readonly column: 'description' };
-                readonly crdtState: { readonly column: 'crdt_state' };
-                readonly crdtStateVector: { readonly column: 'crdt_state_vector' };
                 readonly createdBy: { readonly column: 'created_by' };
                 readonly createdAt: { readonly column: 'created_at' };
                 readonly updatedAt: { readonly column: 'updated_at' };
-              };
-            };
-          };
-          readonly DiagramVersions: {
-            readonly fields: {
-              readonly id: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly diagramId: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly versionNumber: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly crdtSnapshot: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bytea@1' };
-              };
-              readonly createdBy: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly createdAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamptz-string@1';
-                };
-              };
-            };
-            readonly relations: {
-              readonly diagram: {
-                readonly to: {
-                  readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'Diagrams';
-                };
-                readonly cardinality: 'N:1';
-                readonly nullable: false;
-                readonly on: {
-                  readonly localFields: readonly ['diagramId'];
-                  readonly targetFields: readonly ['id'];
-                };
-              };
-              readonly users: {
-                readonly to: {
-                  readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'Users';
-                };
-                readonly cardinality: 'N:1';
-                readonly nullable: true;
-                readonly on: {
-                  readonly localFields: readonly ['createdBy'];
-                  readonly targetFields: readonly ['id'];
-                };
-              };
-            };
-            readonly storage: {
-              readonly table: 'diagram_versions';
-              readonly namespaceId: 'public';
-              readonly fields: {
-                readonly id: { readonly column: 'id' };
-                readonly diagramId: { readonly column: 'diagram_id' };
-                readonly versionNumber: { readonly column: 'version_number' };
-                readonly crdtSnapshot: { readonly column: 'crdt_snapshot' };
-                readonly createdBy: { readonly column: 'created_by' };
-                readonly createdAt: { readonly column: 'created_at' };
               };
             };
           };
@@ -3358,22 +3525,6 @@ type ContractBase = Omit<
               readonly userId: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
-              };
-              readonly imageUrl: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'sql/varchar@1';
-                  readonly typeParams: { readonly length: 500 };
-                };
-              };
-              readonly cloudinaryPublicId: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'sql/varchar@1';
-                  readonly typeParams: { readonly length: 255 };
-                };
               };
               readonly originalFileName: {
                 readonly nullable: false;
@@ -3459,8 +3610,6 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly diagramId: { readonly column: 'diagram_id' };
                 readonly userId: { readonly column: 'user_id' };
-                readonly imageUrl: { readonly column: 'image_url' };
-                readonly cloudinaryPublicId: { readonly column: 'cloudinary_public_id' };
                 readonly originalFileName: { readonly column: 'original_file_name' };
                 readonly mimeType: { readonly column: 'mime_type' };
                 readonly fileSize: { readonly column: 'file_size' };
@@ -4241,6 +4390,17 @@ type ContractBase = Omit<
                   readonly targetFields: readonly ['userId'];
                 };
               };
+              readonly backendDeployments: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'BackendDeployments';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['requestedBy'];
+                };
+              };
               readonly codeGenerationJobs: {
                 readonly to: {
                   readonly namespace: 'public' & NamespaceId;
@@ -4261,17 +4421,6 @@ type ContractBase = Omit<
                 readonly on: {
                   readonly localFields: readonly ['id'];
                   readonly targetFields: readonly ['userId'];
-                };
-              };
-              readonly diagramVersions: {
-                readonly to: {
-                  readonly namespace: 'public' & NamespaceId;
-                  readonly model: 'DiagramVersions';
-                };
-                readonly cardinality: '1:N';
-                readonly on: {
-                  readonly localFields: readonly ['id'];
-                  readonly targetFields: readonly ['createdBy'];
                 };
               };
               readonly diagrams: {
@@ -4366,12 +4515,12 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly typeName: 'xmi_direction' };
                 };
               };
-              readonly fileUrl: {
+              readonly fileName: {
                 readonly nullable: false;
                 readonly type: {
                   readonly kind: 'scalar';
                   readonly codecId: 'sql/varchar@1';
-                  readonly typeParams: { readonly length: 500 };
+                  readonly typeParams: { readonly length: 255 };
                 };
               };
               readonly status: {
@@ -4435,7 +4584,7 @@ type ContractBase = Omit<
                 readonly diagramId: { readonly column: 'diagram_id' };
                 readonly userId: { readonly column: 'user_id' };
                 readonly direction: { readonly column: 'direction' };
-                readonly fileUrl: { readonly column: 'file_url' };
+                readonly fileName: { readonly column: 'file_name' };
                 readonly status: { readonly column: 'status' };
                 readonly errorMessage: { readonly column: 'error_message' };
                 readonly createdAt: { readonly column: 'created_at' };

@@ -26,8 +26,10 @@ target/
 backend/generated/
 
 # --------------------------------------------------------- entorno de Python
-# Entorno virtual del servicio de transcripción (CU04 por voz). Se recrea
-# con las instrucciones de speech/README.md; no es código fuente.
+# Resto del servicio local de transcripción que CU04 usaba antes de que la voz
+# la transcribiera Groq. Ya no hace falta y se puede borrar de la máquina; la
+# regla sigue aquí para que esos 283 MB no aparezcan en git mientras la carpeta
+# exista.
 /whisper-env/
 __pycache__/
 *.pyc

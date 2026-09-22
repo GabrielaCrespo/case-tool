@@ -38,9 +38,9 @@ export class AiController {
   /**
    * CU04 por voz — El usuario dicta la instrucción en vez de teclearla.
    *
-   * Faster-Whisper la convierte en texto y a partir de ahí es exactamente la
-   * misma operación que /ai/interpret. La respuesta incluye la transcripción
-   * para que el usuario pueda comprobar qué se entendió.
+   * Whisper la convierte en texto y a partir de ahí es exactamente la misma
+   * operación que /ai/interpret. La respuesta incluye la transcripción para
+   * que el usuario pueda comprobar qué se entendió.
    */
   @Post('voice')
   @UseInterceptors(AnyFilesInterceptor({ limits: { fileSize: MAX_AUDIO_BYTES, files: 1 } }))

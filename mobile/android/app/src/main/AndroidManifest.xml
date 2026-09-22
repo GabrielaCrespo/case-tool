@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Hablar con el backend publicado. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- CU10 — Saber si hay red, para el indicador y para subir la cola en
+         cuanto vuelva la conexión. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+    <!-- CU09 — Dictar. La transcripción es del propio dispositivo. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
+    <!-- Escanear el código QR que enseña el editor al publicar. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <application
-        android:label="mobile"
+        android:label="CASE Tool"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -40,6 +54,12 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
+        </intent>
+        <!-- El reconocedor de voz del sistema, que es quien transcribe sin
+             conexión. Sin esta declaración Android no lo deja ver y
+             speech_to_text no encuentra ningún motor. -->
+        <intent>
+            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

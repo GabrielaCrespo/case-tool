@@ -1,9 +1,9 @@
 import type { UmlClassFull, Visibility } from '../../../api/types'
-import { PlusIcon, TrashIcon } from '../../../components/icons'
+import { PlusIcon, SparkIcon, TrashIcon } from '../../../components/icons'
 import { Button } from '../../../components/ui/Button'
 import { Checkbox } from '../../../components/ui/Field'
 import { useDiagramStore } from '../../../store/diagram'
-import { LIMITS, VISIBILITY_OPTIONS, identifierProblem, isPersistent } from '../uml'
+import { LIMITS, PRIMARY_KEY, VISIBILITY_OPTIONS, identifierProblem, isPersistent } from '../uml'
 import { AttributeRow } from './AttributeRow'
 import { MethodRow } from './MethodRow'
 import { CommitInput } from './CommitInput'
@@ -24,6 +24,7 @@ export function ClassProperties({ umlClass, onRequestDelete }: ClassPropertiesPr
   const updateClass = useDiagramStore((state) => state.updateClass)
   const addAttribute = useDiagramStore((state) => state.addAttribute)
   const addMethod = useDiagramStore((state) => state.addMethod)
+  const inferAttributeTypes = useDiagramStore((state) => state.inferAttributeTypes)
 
   // uml_classes tiene UNIQUE (diagram_id, name).
   const otherClassNames = classes
@@ -34,11 +35,9 @@ export function ClassProperties({ umlClass, onRequestDelete }: ClassPropertiesPr
   // las clases que llegan por XMI marcadas como interface, enumeration o
   // service desde Enterprise Architect, que no generan tabla.
   const entity = isPersistent(umlClass)
-  const missingKey =
-    entity &&
-    !umlClass.is_abstract &&
-    !umlClass.attributes.some((attribute) => attribute.is_primary_key)
-  const namedId = umlClass.attributes.find((attribute) => attribute.name.toLowerCase() === 'id')
+  // Los atributos sin tipo: los que llegan de una foto (CU05) o de un XMI que
+  // no los traía (CU06). Son los que rellena «Deducir tipos».
+  const untyped = umlClass.attributes.filter((attribute) => attribute.data_type === null).length
 
   return (
     <>
@@ -81,24 +80,19 @@ export function ClassProperties({ umlClass, onRequestDelete }: ClassPropertiesPr
             }
           />
 
-          {/* No es un error: el generador sabe salir del paso. Pero que la
-              tabla acabe teniendo una columna que nadie escribió tiene que
-              verse aquí, antes de generar, y no descubrirse en el código. */}
-          {missingKey && (
-            <p className="border border-pending-600/40 bg-pending-100 px-2 py-1.5 text-[11.5px] leading-snug text-pending-700">
-              {namedId ? (
-                <>
-                  Ningún atributo está marcado como clave primaria. Se usará{' '}
-                  <span className="font-mono">{namedId.name}</span> por llamarse así.
-                </>
-              ) : (
-                <>
-                  Sin clave primaria. Al generar se añadirá una columna{' '}
-                  <span className="font-mono">id</span> de tipo{' '}
-                  <span className="font-mono">Long</span> autogenerada.
-                </>
-              )}
-            </p>
+          {/* La clave primaria no se elige: se dice cuál es. Está aquí, y no
+              entre los atributos, porque no es una columna que su autor pueda
+              cambiar —ni renombrar, ni borrar, ni llevar a otro atributo—. */}
+          {entity && (
+            <div className="pt-1">
+              <PanelReadout
+                label="Clave primaria"
+                value={`${PRIMARY_KEY.name} : ${PRIMARY_KEY.dataType}`}
+              />
+              <p className="text-[11px] leading-snug text-ink-400">
+                La pone la herramienta en toda entidad, autonumerada. No se define como atributo.
+              </p>
+            </div>
           )}
 
           <div className="pt-1">
@@ -114,19 +108,35 @@ export function ClassProperties({ umlClass, onRequestDelete }: ClassPropertiesPr
         title="Atributos"
         count={umlClass.attributes.length}
         action={
-          <Button
-            size="sm"
-            icon={<PlusIcon className="size-3.5" />}
-            onClick={() => void addAttribute(umlClass.id)}
-            className="h-7 px-2 text-[12px]"
-          >
-            Añadir
-          </Button>
+          <div className="flex items-center gap-1.5">
+            {/* Sólo cuando hay algo que deducir: en una entidad escrita a mano
+                todos los atributos nacen con tipo y el botón sobraría. */}
+            {untyped > 0 && (
+              <Button
+                size="sm"
+                icon={<SparkIcon className="size-3.5" />}
+                title={`Pone un tipo deducido del nombre a los ${untyped} atributos que no tienen ninguno.`}
+                onClick={() => void inferAttributeTypes(umlClass.id)}
+                className="h-7 px-2 text-[12px]"
+              >
+                Deducir tipos
+              </Button>
+            )}
+            <Button
+              size="sm"
+              icon={<PlusIcon className="size-3.5" />}
+              onClick={() => void addAttribute(umlClass.id)}
+              className="h-7 px-2 text-[12px]"
+            >
+              Añadir
+            </Button>
+          </div>
         }
       >
         {umlClass.attributes.length === 0 ? (
           <p className="py-1 text-[12.5px] text-ink-500">
-            Sin atributos. Cada atributo será una columna de la tabla.
+            Sin atributos. Cada atributo será una columna de la tabla, además de la clave
+            primaria.
           </p>
         ) : (
           <ul className="flex flex-col gap-1.5">

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { FullDiagramResponse } from './diagrams.service.js';
 import { isPersistent, validateDiagram } from './diagram-validator.js';
+import { PRIMARY_KEY } from './uml-catalog.js';
 
 /**
  * CU02/CU07 — Qué cuenta como entidad.
@@ -17,19 +18,14 @@ import { isPersistent, validateDiagram } from './diagram-validator.js';
 
 const TIMES = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' };
 
-function attribute(
-  name: string,
-  dataType: string | null,
-  extra: { primaryKey?: boolean } = {},
-) {
+function attribute(name: string, dataType: string | null) {
   return {
     id: `attribute-${name}`,
     class_id: '',
     name,
     data_type: dataType,
     visibility: 'private',
-    is_primary_key: extra.primaryKey === true,
-    is_nullable: extra.primaryKey !== true,
+    is_nullable: true,
     is_unique: false,
     default_value: null,
     order_index: 0,
@@ -72,13 +68,13 @@ function diagram(classes: ReturnType<typeof umlClass>[]): FullDiagramResponse {
   };
 }
 
-/** Lo que el diseñador acaba de dibujar: dos cajas, sin tocar nada más. */
+/**
+ * Lo que el diseñador acaba de dibujar: dos cajas, sin tocar nada más. Sin
+ * ningún atributo «id»: la clave primaria de las dos la pone la herramienta.
+ */
 const RECIEN_DIBUJADO = diagram([
-  umlClass('Cliente', [
-    attribute('id', 'Long', { primaryKey: true }),
-    attribute('nombre', 'String'),
-  ]),
-  umlClass('Pedido', [attribute('id', 'Long', { primaryKey: true }), attribute('fecha', 'LocalDate')]),
+  umlClass('Cliente', [attribute('nombre', 'String')]),
+  umlClass('Pedido', [attribute('fecha', 'LocalDate')]),
 ]);
 
 describe('CU02 — una clase sin estereotipo es una entidad', () => {
@@ -111,12 +107,7 @@ describe('CU02 — una clase sin estereotipo es una entidad', () => {
 describe('CU02 — lo que falta antes de generar', () => {
   it('un atributo sin tipo impide generar, en vez de elegir el tipo por su autor', () => {
     const report = validateDiagram(
-      diagram([
-        umlClass('Cliente', [
-          attribute('id', 'Long', { primaryKey: true }),
-          attribute('nombre', null),
-        ]),
-      ]),
+      diagram([umlClass('Cliente', [attribute('nombre', null)])]),
     );
 
     const issue = report.issues.find((candidate) => candidate.code === 'ATTRIBUTE_TYPE_REQUIRED');
@@ -124,21 +115,25 @@ describe('CU02 — lo que falta antes de generar', () => {
     expect(report.ready_for_generation).toBe(false);
   });
 
-  it('sin clave primaria se avisa, pero se puede generar: el generador añade la columna', () => {
+  it('una entidad sin clave primaria dibujada no tiene nada que avisar', () => {
     const report = validateDiagram(diagram([umlClass('Cliente', [attribute('nombre', 'String')])]));
 
-    const issue = report.issues.find((candidate) => candidate.code === 'ENTITY_WITHOUT_PRIMARY_KEY');
-    expect(issue?.severity).toBe('warning');
-    expect(issue?.message).toContain('Long');
-    expect(report.errors).toBe(0);
+    // La clave primaria «id» la pone la herramienta en toda entidad, así que
+    // no hay nada que falte ni nada que el generador tenga que inventarse.
+    expect(report.issues).toHaveLength(0);
     expect(report.ready_for_generation).toBe(true);
   });
 
-  it('con un atributo llamado id, el aviso dice que se usará ése', () => {
+  it('un atributo llamado id, de un diagrama antiguo, se avisa y no impide generar', () => {
     const report = validateDiagram(diagram([umlClass('Cliente', [attribute('id', 'Long')])]));
 
-    const issue = report.issues.find((candidate) => candidate.code === 'ENTITY_WITHOUT_PRIMARY_KEY');
+    const issue = report.issues.find(
+      (candidate) => candidate.code === 'ATTRIBUTE_IS_PRIMARY_KEY_NAME',
+    );
+    expect(issue?.severity).toBe('warning');
     expect(issue?.message).toContain('«id»');
+    expect(report.errors).toBe(0);
+    expect(report.ready_for_generation).toBe(true);
   });
 });
 
@@ -154,5 +149,16 @@ describe('CU07 — el generador Java dice lo mismo', () => {
     expect(java).toContain(
       'return stereotype == null || stereotype.isBlank() || hasStereotype("entity");',
     );
+  });
+
+  it('la clave primaria del generador se llama igual que la reservada aquí', () => {
+    const java = readFileSync(
+      '../generator/src/main/java/com/casese/generator/plan/EntityPlan.java',
+      'utf8',
+    );
+
+    // Si en Java pasara a llamarse de otra manera, el editor seguiría
+    // reservando «id» y dejaría crear un atributo que choca con la columna.
+    expect(java).toContain(`public static final String ID_NAME = "${PRIMARY_KEY.name}";`);
   });
 });

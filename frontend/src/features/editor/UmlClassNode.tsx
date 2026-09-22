@@ -6,7 +6,15 @@ import { cn } from '../../lib/cn'
 import { useLockedByOther } from '../../realtime/useLock'
 import { initials } from '../../lib/format'
 import { InlineName } from './InlineName'
-import { LIMITS, identifierProblem, isPersistent, visibilitySymbol } from './uml'
+import {
+  LIMITS,
+  PRIMARY_KEY,
+  attributeNameProblem,
+  identifierProblem,
+  isPersistent,
+  isPrimaryKeyName,
+  visibilitySymbol,
+} from './uml'
 
 export type UmlClassNodeData = {
   umlClass: UmlClassFull
@@ -173,8 +181,15 @@ export function UmlClassNode({ id, data, selected }: NodeProps<UmlClassNodeType>
           espacio con el de métodos y desplaza el resto con scroll propio. */}
       <div className="flex min-h-0 flex-auto flex-col border-b border-b-ink-200">
         <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1.5">
+          {/* La clave primaria encabeza el compartimento, como en cualquier
+              diseño de tablas, aunque no sea un atributo del modelo: la pone
+              la herramienta en toda entidad y no se puede editar. */}
+          {isPersistent(umlClass) && <PrimaryKeyLine />}
+
           {umlClass.attributes.length === 0 ? (
-            <p className="px-1 py-0.5 text-[11.5px] text-ink-400 italic">sin atributos</p>
+            !isPersistent(umlClass) && (
+              <p className="px-1 py-0.5 text-[11.5px] text-ink-400 italic">sin atributos</p>
+            )
           ) : (
             <ul className="flex flex-col">
               {umlClass.attributes.map((attribute) => (
@@ -247,6 +262,34 @@ export function UmlClassNode({ id, data, selected }: NodeProps<UmlClassNodeType>
   )
 }
 
+/**
+ * La clave primaria dibujada: «PK id : Long».
+ *
+ * Se lee igual que un atributo pero en gris y sin doble clic, porque no hay
+ * nada que cambiarle: no está en el modelo, la pone la herramienta en toda
+ * entidad, y es lo que evita las claves primarias escritas a mano que después
+ * impedían generar la base de datos.
+ */
+function PrimaryKeyLine() {
+  return (
+    <div
+      title="Clave primaria de la tabla. La pone la herramienta y no se edita."
+      className="flex items-baseline gap-1.5 px-1 py-[1px] font-mono text-[11.5px] leading-[1.45]"
+    >
+      <span className="flex w-[18px] shrink-0 justify-end">
+        <span className="rounded-[2px] bg-signal-100 px-1 text-[9px] font-bold text-signal-700">
+          PK
+        </span>
+      </span>
+      <span className="min-w-0 flex-1 truncate text-ink-500">
+        {PRIMARY_KEY.name}
+        <span className="text-ink-400">: </span>
+        {PRIMARY_KEY.dataType}
+      </span>
+    </div>
+  )
+}
+
 interface AttributeLineProps {
   attribute: UmlAttribute
   /** Los de la misma entidad: uml_attributes tiene UNIQUE (class_id, name). */
@@ -276,28 +319,32 @@ function AttributeLine({
     ) {
       return 'Ya existe un atributo con ese nombre.'
     }
-    // El nombre será el de un campo Java y el de una columna.
-    return identifierProblem(value)
+    // El nombre será el de un campo Java y el de una columna, y no puede ser
+    // el de la clave primaria que la herramienta pone en toda entidad.
+    return attributeNameProblem(value)
   }
+
+  /*
+   * Un atributo llamado «id» sólo puede venir de un diagrama guardado antes de
+   * que la clave primaria la pusiera la herramienta. Se dibuja tachado, porque
+   * la fila «PK id» de arriba es la que va a ser columna y ésta se omitirá al
+   * generar: verlas iguales, las dos en negro, haría creer que la tabla tendrá
+   * dos. Se sigue viendo —y se puede borrar desde el panel— en lugar de
+   * esconderla, que sería hacer desaparecer algo que su autor escribió.
+   */
+  const ignored = isPrimaryKeyName(attribute.name)
 
   return (
     <li className="flex items-baseline gap-1.5 px-1 py-[1px] font-mono text-[11.5px] leading-[1.45]">
       <span className="flex w-[18px] shrink-0 justify-end">
-        {attribute.is_primary_key ? (
-          <span
-            title="Clave primaria"
-            className="rounded-[2px] bg-signal-100 px-1 text-[9px] font-bold text-signal-700"
-          >
-            PK
-          </span>
-        ) : attribute.is_unique ? (
+        {attribute.is_unique && !ignored && (
           <span
             title="Valor único"
             className="rounded-[2px] bg-ink-100 px-1 text-[9px] font-bold text-ink-600"
           >
             U
           </span>
-        ) : null}
+        )}
       </span>
 
       {renaming && editable ? (
@@ -312,8 +359,17 @@ function AttributeLine({
       ) : (
         <span
           onDoubleClick={() => editable && onStartRenaming()}
-          title={editable ? 'Doble clic para cambiar el nombre' : undefined}
-          className="min-w-0 flex-1 truncate text-ink-800"
+          title={
+            ignored
+              ? 'Se omitirá al generar: la clave primaria de la entidad es la de arriba. Puede borrar este atributo.'
+              : editable
+                ? 'Doble clic para cambiar el nombre'
+                : undefined
+          }
+          className={cn(
+            'min-w-0 flex-1 truncate',
+            ignored ? 'text-ink-400 line-through decoration-ink-300' : 'text-ink-800',
+          )}
         >
           <span className="text-ink-500">{visibilitySymbol(attribute.visibility)} </span>
           {attribute.name}

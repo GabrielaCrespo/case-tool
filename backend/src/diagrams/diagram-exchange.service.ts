@@ -3,6 +3,7 @@ import { ClassesService } from './classes.service.js';
 import type { FullDiagramResponse } from './diagrams.service.js';
 import { DiagramsService } from './diagrams.service.js';
 import { RelationshipsService } from './relationships.service.js';
+import { isPrimaryKeyName } from './uml-catalog.js';
 
 /**
  * Importar y exportar un diagrama como archivo.
@@ -10,8 +11,8 @@ import { RelationshipsService } from './relationships.service.js';
  * No tiene nada que ver con CU05. Allí se mira una foto y una IA adivina qué
  * hay dibujado; aquí se lee un archivo que escribió esta misma herramienta, y
  * por tanto no hay nada que adivinar: el archivo dice exactamente qué clases,
- * atributos y relaciones había, y la importación los vuelve a crear. Ni
- * Cloudinary ni Ollama intervienen.
+ * atributos y relaciones había, y la importación los vuelve a crear. Aquí no
+ * interviene ningún modelo de IA.
  *
  * El formato conserva todo lo que hace falta para reconstruir el diagrama tal
  * como estaba, incluidos los atributos que todavía no tienen tipo: exportar e
@@ -40,7 +41,6 @@ export interface ExchangeAttribute {
   /** null = el atributo existe pero no se sabe de qué tipo es. */
   type: string | null;
   visibility: string;
-  is_primary_key: boolean;
   is_nullable: boolean;
   is_unique: boolean;
   default_value: string | null;
@@ -141,7 +141,6 @@ export class DiagramExchangeService {
             name: attribute.name,
             type: attribute.data_type,
             visibility: attribute.visibility,
-            is_primary_key: attribute.is_primary_key,
             is_nullable: attribute.is_nullable,
             is_unique: attribute.is_unique,
             default_value: attribute.default_value,
@@ -225,13 +224,19 @@ export class DiagramExchangeService {
       const classId = classIds.get(node.id)!;
 
       for (const attribute of node.data.attributes) {
+        // Un archivo escrito antes de que la clave primaria la pusiera la
+        // herramienta puede traer un atributo «id»: se descarta, porque la
+        // entidad importada ya tiene el suyo y el alta lo rechazaría.
+        if (isPrimaryKeyName(attribute.name)) {
+          continue;
+        }
+
         await this.classesService.createAttribute(userId, classId, {
           name: attribute.name,
           // Sin tipo se manda null, no se rellena: es justo lo que distingue
           // «no lo sabemos» de «es un String».
           data_type: attribute.type,
           visibility: attribute.visibility,
-          is_primary_key: attribute.is_primary_key,
           is_nullable: attribute.is_nullable,
           is_unique: attribute.is_unique,
           default_value: attribute.default_value,
@@ -403,7 +408,6 @@ export class DiagramExchangeService {
       name,
       type: this.text(attribute.type ?? attribute.data_type),
       visibility: this.text(attribute.visibility) ?? 'private',
-      is_primary_key: attribute.is_primary_key === true,
       // Por omisión admite nulos, que es el valor con el que nace en la base.
       is_nullable: attribute.is_nullable !== false,
       is_unique: attribute.is_unique === true,

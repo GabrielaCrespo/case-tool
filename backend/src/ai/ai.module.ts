@@ -4,9 +4,7 @@ import { DiagramsModule } from '../diagrams/diagrams.module.js';
 import { AiExecutorService } from './ai-executor.service.js';
 import { AiController } from './ai.controller.js';
 import { AiService } from './ai.service.js';
-import { CloudinaryService } from './cloudinary.service.js';
-import { OllamaService } from './ollama.service.js';
-import { SpeechToTextService } from './speech-to-text.service.js';
+import { GroqService } from './groq.service.js';
 
 /**
  * CU04 — Asistir el Diseño mediante IA (por texto y por voz).
@@ -18,18 +16,16 @@ import { SpeechToTextService } from './speech-to-text.service.js';
  * los avisos a la sala de CU03 y las validaciones de CU02—.
  *
  * Las tres entradas —texto, voz e imagen— se distinguen sólo en cómo llegan.
- * Cada una tiene su traductor (Whisper para la voz, Qwen3-VL para la imagen) y
- * a partir de ahí comparten intérprete, normalización, validación y ejecución.
+ * Las tres las atiende el mismo cliente (GroqService: un modelo para el texto,
+ * uno multimodal para la imagen y Whisper para el audio) y a partir de ahí
+ * comparten intérprete, normalización, validación y ejecución.
+ *
+ * Ni el audio ni la imagen se guardan: se usan una vez, en la petición en la
+ * que llegan, y se descartan.
  */
 @Module({
   imports: [AuthModule, DiagramsModule],
   controllers: [AiController],
-  providers: [
-    AiService,
-    AiExecutorService,
-    OllamaService,
-    CloudinaryService,
-    SpeechToTextService,
-  ],
+  providers: [AiService, AiExecutorService, GroqService],
 })
 export class AiModule {}

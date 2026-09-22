@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeftIcon,
+  CloudIcon,
   DownloadIcon,
   ServerIcon,
   SparkIcon,
@@ -10,6 +11,7 @@ import {
 import { Logo } from '../../components/Logo'
 import { useDiagramStore } from '../../store/diagram'
 import { AiAssistant } from './AiAssistant'
+import { DeployDialog } from './DeployDialog'
 import { ExportDialog } from './ExportDialog'
 import { GenerateBackendDialog } from './GenerateBackendDialog'
 import { Presence } from './Presence'
@@ -32,6 +34,7 @@ export function EditorTopBar({ projectId }: { projectId: string | null }) {
   const [assisting, setAssisting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [deploying, setDeploying] = useState(false)
   const [draft, setDraft] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -144,6 +147,22 @@ export function EditorTopBar({ projectId }: { projectId: string | null }) {
       </button>
 
       <GenerateBackendDialog open={generating} onClose={() => setGenerating(false)} />
+
+      {/* Publicar lo generado: dejarlo respondiendo en una dirección pública.
+          Va justo después de generar porque es su continuación, y hace falta
+          para CU09: la aplicación móvil necesita una URL a la que llamar. */}
+      <button
+        type="button"
+        disabled={diagram === null}
+        onClick={() => setDeploying(true)}
+        title="Publicar el backend generado en una dirección pública"
+        className="flex shrink-0 items-center gap-1.5 rounded-[3px] border border-ink-200 px-2 py-1.5 text-[12.5px] font-medium text-ink-700 transition-colors hover:bg-ink-50 disabled:cursor-not-allowed disabled:text-ink-400"
+      >
+        <CloudIcon className="size-4" />
+        <span className="hidden lg:inline">Publicar</span>
+      </button>
+
+      <DeployDialog open={deploying} onClose={() => setDeploying(false)} />
 
       {/* CU04 y CU05 — Instrucciones en lenguaje natural e importar desde una
           imagen. Se deshabilita mientras no haya diagrama cargado: las dos

@@ -3,7 +3,12 @@ import { ClassesService } from '../diagrams/classes.service.js';
 import type { FullDiagramResponse } from '../diagrams/diagrams.service.js';
 import type { RelationshipType } from '../diagrams/relationships.service.js';
 import { RelationshipsService } from '../diagrams/relationships.service.js';
-import { OFFERED_DATA_TYPES, identifierProblem } from '../diagrams/uml-catalog.js';
+import {
+  OFFERED_DATA_TYPES,
+  PRIMARY_KEY,
+  identifierProblem,
+  isPrimaryKeyName,
+} from '../diagrams/uml-catalog.js';
 import { isMultiplicity } from '../diagrams/validation.js';
 import { besidePosition, freePosition } from './layout.js';
 import type { Placed } from './layout.js';
@@ -617,6 +622,14 @@ export class AiExecutorService {
             reject(`«${action.newName}» no es un nombre de atributo válido: ${problem}.`);
             return;
           }
+          // Renombrar sí se rechaza, al contrario que añadir: aquí el atributo
+          // se perdería de vista, y lo que el usuario pidió no se puede hacer.
+          if (isPrimaryKeyName(action.newName)) {
+            reject(
+              `Ningún atributo puede llamarse «${PRIMARY_KEY.name}»: toda entidad tiene ya esa clave primaria, y la pone la herramienta.`,
+            );
+            return;
+          }
           if (
             umlClass.attributes.has(fold(action.newName)) &&
             fold(action.newName) !== fold(current)
@@ -1018,6 +1031,20 @@ export class AiExecutorService {
     const seen = new Set(taken);
 
     for (const attribute of attributes) {
+      /*
+       * «id» no se añade: la clave primaria la pone la herramienta en toda
+       * entidad. Aparece a menudo —la instrucción la dicta, o la foto la trae
+       * dibujada—, así que se descarta con un aviso en vez de rechazar la
+       * instrucción entera: lo que el usuario pidió sigue teniendo sentido sin
+       * ese atributo, y la entidad acaba teniendo su columna «id» igual.
+       */
+      if (isPrimaryKeyName(attribute.name)) {
+        warnings.push(
+          `El atributo «${attribute.name}» de ${className} no se añadió: la clave primaria «${PRIMARY_KEY.name}» la pone la herramienta en todas las entidades.`,
+        );
+        continue;
+      }
+
       const problem = identifierProblem(attribute.name);
       if (problem !== null) {
         rejections.push(`«${attribute.name}» no es un nombre de atributo válido: ${problem}.`);

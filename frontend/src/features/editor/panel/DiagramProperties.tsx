@@ -1,3 +1,5 @@
+import { SparkIcon } from '../../../components/icons'
+import { Button } from '../../../components/ui/Button'
 import { CONTROL_COMPACT } from '../../../components/ui/control-styles'
 import { formatRelative } from '../../../lib/format'
 import { useDiagramStore } from '../../../store/diagram'
@@ -14,10 +16,16 @@ export function DiagramProperties() {
   const relationships = useDiagramStore((state) => state.relationships)
   const updateDiagram = useDiagramStore((state) => state.updateDiagram)
   const select = useDiagramStore((state) => state.select)
+  const inferAttributeTypes = useDiagramStore((state) => state.inferAttributeTypes)
 
   if (!diagram) return null
 
   const attributeCount = classes.reduce((total, umlClass) => total + umlClass.attributes.length, 0)
+  const untyped = classes.reduce(
+    (total, umlClass) =>
+      total + umlClass.attributes.filter((attribute) => attribute.data_type === null).length,
+    0,
+  )
 
   return (
     <>
@@ -61,6 +69,28 @@ export function DiagramProperties() {
           <PanelReadout label="Atributos" value={String(attributeCount)} />
           <PanelReadout label="Relaciones" value={String(relationships.length)} />
         </div>
+
+        {/* Un modelo importado de una imagen o de un XMI llega con columnas sin
+            tipo. Ponerlas una a una es lento y el nombre ya lo está diciendo:
+            aquí se rellenan todas de una vez y se corrige lo que no encaje. */}
+        {untyped > 0 && (
+          <div className="mt-3 border-t border-ink-200 pt-3">
+            <p className="mb-2 text-[12.5px] leading-snug text-ink-600">
+              {untyped === 1
+                ? 'Hay 1 atributo sin tipo de dato.'
+                : `Hay ${untyped} atributos sin tipo de dato.`}{' '}
+              Se puede deducir por el nombre y corregir después lo que haga falta.
+            </p>
+            <Button
+              size="sm"
+              icon={<SparkIcon className="size-3.5" />}
+              onClick={() => void inferAttributeTypes()}
+              className="w-full"
+            >
+              Deducir tipos
+            </Button>
+          </div>
+        )}
       </PanelSection>
 
       <PanelSection title="Entidades del diagrama" count={classes.length}>

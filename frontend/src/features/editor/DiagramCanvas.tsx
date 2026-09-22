@@ -18,7 +18,7 @@ import { useAuthStore } from '../../store/auth'
 import { useDiagramStore } from '../../store/diagram'
 import { ASSOCIATION_CLASS_TOOL, isLinkTool, isRelationshipTool } from './tools'
 import type { Tool } from './tools'
-import { ASSOCIATION_CLASS_META, RELATIONSHIP_META } from './uml'
+import { ASSOCIATION_CLASS_META, RELATIONSHIP_META, associationClassLinks } from './uml'
 import { DEFAULT_CLASS_HEIGHT, DEFAULT_CLASS_WIDTH, UmlClassNode } from './UmlClassNode'
 import type { UmlClassNodeType } from './UmlClassNode'
 import { UmlRelationEdge } from './UmlRelationEdge'
@@ -208,6 +208,10 @@ export function DiagramCanvas({ tool, onToolChange, onRequestDelete }: DiagramCa
       ]),
     )
 
+    // Las dos líneas de una entidad intermedia se dibujan discontinuas; se
+    // calculan sobre el diagrama entero, no relación a relación.
+    const hangingLinks = associationClassLinks(relationships)
+
     return relationships.flatMap((relationship: UmlRelationship) => {
       const source = boxes.get(relationship.source_class_id)
       const target = boxes.get(relationship.target_class_id)
@@ -226,7 +230,7 @@ export function DiagramCanvas({ tool, onToolChange, onRequestDelete }: DiagramCa
           target: relationship.target_class_id,
           sourceHandle,
           targetHandle,
-          data: { relationship },
+          data: { relationship, associationClass: hangingLinks.has(relationship.id) },
           selected: relationship.id === selectedRelationshipId,
           zIndex: relationship.id === selectedRelationshipId ? 1 : 0,
         },

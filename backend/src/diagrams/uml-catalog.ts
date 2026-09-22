@@ -72,6 +72,24 @@ export function isReturnType(value: string): boolean {
 }
 
 /**
+ * La clave primaria que lleva toda entidad.
+ *
+ * No se dibuja ni se escribe: la pone la herramienta. Toda tabla que genere
+ * CU07 tiene su columna «id» BIGINT autogenerada, y por eso ningún atributo
+ * del diagrama puede llamarse así. La razón es que una clave primaria puesta a
+ * mano es justo lo que rompía la generación: dos atributos marcados como clave,
+ * una clave sin tipo o de un tipo que PostgreSQL no puede autogenerar, o una
+ * entidad a la que se le olvidó marcar ninguna. El identificador de una fila no
+ * es una decisión de modelado de datos, así que no se pregunta.
+ */
+export const PRIMARY_KEY = { name: 'id', dataType: 'Long' } as const;
+
+/** ¿Este nombre choca con la clave primaria que pone la herramienta? */
+export function isPrimaryKeyName(value: string): boolean {
+  return value.trim().toLowerCase() === PRIMARY_KEY.name;
+}
+
+/**
  * Un nombre que pueda convertirse en un identificador Java.
  * Se exige además que no sea una palabra reservada del lenguaje: «class» o
  * «new» serían nombres imposibles en el código generado.

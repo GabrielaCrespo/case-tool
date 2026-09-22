@@ -1,5 +1,6 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Scalars } from '@prisma/orm-postgres/family-contract/types';
+import type { Varchar } from '@prisma/orm-postgres/target/codec-types';
 import type { DiagramChangeKind } from '../collaboration/collaboration-events.js';
 import { DiagramEventsService } from '../collaboration/diagram-events.service.js';
 import type { Models } from '../prisma/contract.d';
@@ -22,11 +23,7 @@ type MethodRow = Scalars<Models.public_UmlMethods>;
 type ParameterRow = Scalars<Models.public_UmlMethodParameters>;
 type RelationshipRow = Scalars<Models.public_UmlRelationships>;
 
-/**
- * El diagrama tal como lo devuelve la API.
- * crdt_state y crdt_state_vector no se exponen: son el estado binario de Yjs
- * que usará la colaboración en tiempo real (CU03).
- */
+/** El diagrama tal como lo devuelve la API. */
 export interface DiagramResponse {
   id: string;
   project_id: string;
@@ -44,7 +41,6 @@ export interface AttributeResponse {
   /** null = el atributo existe pero todavía no se sabe de qué tipo es. */
   data_type: string | null;
   visibility: string;
-  is_primary_key: boolean;
   is_nullable: boolean;
   is_unique: boolean;
   default_value: string | null;
@@ -124,14 +120,75 @@ export interface DiagramInput {
 
 @Injectable()
 export class DiagramsService {
+  private readonly logger = new Logger(DiagramsService.name);
+
   constructor(private readonly diagramEvents: DiagramEventsService) {}
 
   /**
    * CU03 — Avisa a la sala del diagrama de un cambio ya guardado.
    * Lo usan también ClassesService y RelationshipsService.
+   *
+   * Además de difundirlo, lo anota en `diagram_change_log`. Se hace aquí y no
+   * en cada servicio porque todos los cambios pasan por este método: es el
+   * único sitio donde la bitácora está completa por construcción y no por
+   * acordarse de llamarla.
    */
   publish(diagramId: string, kind: DiagramChangeKind, payload: unknown, actorId: string): void {
     this.diagramEvents.emit({ diagram_id: diagramId, kind, payload, actor_id: actorId });
+
+    // Sin await: que la bitácora tarde no puede retrasar la respuesta al que
+    // hizo el cambio, y que falle no puede deshacer un cambio ya guardado.
+    void this.log(diagramId, kind, payload, actorId);
+  }
+
+  /**
+   * Anota un cambio en la bitácora.
+   *
+   * Es auditoría: quién tocó qué y cuándo, con el recurso afectado tal como
+   * quedó. No se usa para reconstruir el diagrama —para eso están las tablas
+   * del modelo, que son la verdad— sino para poder explicar después cómo llegó
+   * a estar como está, que es lo que hace falta cuando varias personas editan
+   * a la vez (CU03).
+   */
+  private async log(
+    diagramId: string,
+    kind: DiagramChangeKind,
+    payload: unknown,
+    actorId: string,
+  ): Promise<void> {
+    // Un diagrama borrado se lleva por delante sus propias anotaciones
+    // (ON DELETE CASCADE), así que anotar su borrado no serviría de nada.
+    if (kind === 'diagram.deleted') {
+      return;
+    }
+
+    const [entity, operation] = kind.split('.');
+
+    try {
+      await db.orm.public.DiagramChangeLog.create({
+        diagramId,
+        userId: actorId,
+        operationType: operation!.toUpperCase() as Varchar<50>,
+        entityType: entity!.toUpperCase() as 'DIAGRAM' | 'CLASS' | 'ATTRIBUTE' | 'METHOD' | 'RELATIONSHIP',
+        entityId: this.identifierOf(payload),
+        payload: payload as never,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo anotar el cambio ${kind} del diagrama ${diagramId}: ` +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+
+  /** El identificador del recurso que cambió, si el payload lo trae. */
+  private identifierOf(payload: unknown): string | null {
+    if (payload !== null && typeof payload === 'object' && 'id' in payload) {
+      const id = (payload as { id: unknown }).id;
+
+      return typeof id === 'string' ? id : null;
+    }
+    return null;
   }
 
   /** CU02 — Crear diagrama dentro de un proyecto. */
@@ -143,8 +200,6 @@ export class DiagramsService {
       name: requiredVarchar(data?.name, 'name', NAME_MAX_LENGTH),
       description: optionalText(data?.description, 'description'),
       createdBy: userId,
-      crdtState: null,
-      crdtStateVector: null,
     });
 
     return this.toDiagramResponse(diagram);
@@ -333,7 +388,6 @@ export class DiagramsService {
       name: attribute.name,
       data_type: attribute.dataType,
       visibility: attribute.visibility,
-      is_primary_key: attribute.isPrimaryKey,
       is_nullable: attribute.isNullable,
       is_unique: attribute.isUnique,
       default_value: attribute.defaultValue,

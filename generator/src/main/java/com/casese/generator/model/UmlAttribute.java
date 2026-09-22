@@ -14,7 +14,6 @@ public record UmlAttribute(
     String name,
     String dataType,
     String visibility,
-    boolean isPrimaryKey,
     boolean isNullable,
     boolean isUnique,
     String defaultValue,

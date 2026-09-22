@@ -1,11 +1,19 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import type { Varchar } from '@prisma/orm-postgres/target/codec-types';
 import { freePosition } from '../ai/layout.js';
+import { db } from '../prisma/db.js';
 import { ClassesService } from '../diagrams/classes.service.js';
 import type { FullDiagramResponse } from '../diagrams/diagrams.service.js';
 import { DiagramsService } from '../diagrams/diagrams.service.js';
 import { RelationshipsService } from '../diagrams/relationships.service.js';
-import { DATA_TYPE_NAMES, identifierProblem } from '../diagrams/uml-catalog.js';
+import {
+  DATA_TYPE_NAMES,
+  PRIMARY_KEY,
+  identifierProblem,
+  isPrimaryKeyName,
+} from '../diagrams/uml-catalog.js';
 import { isMultiplicity } from '../diagrams/validation.js';
+import { decodeXmi } from './xmi-format.js';
 import { generateXmi } from './xmi-generator.js';
 import { XmiParseError, parseXmi } from './xmi-parser.js';
 import type { ParsedClass, ParsedXmi } from './xmi-parser.js';
@@ -76,8 +84,47 @@ export class XmiService {
    */
   async export(userId: string, diagramId: string): Promise<{ fileName: string; xmi: string }> {
     const diagram = await this.diagramsService.findOneFull(userId, diagramId);
+    const fileName = `${fileNameOf(diagram.name)}.xml`;
 
-    return { fileName: `${fileNameOf(diagram.name)}.xml`, xmi: generateXmi(diagram) };
+    await this.record(diagramId, userId, 'EXPORT', fileName);
+
+    return { fileName, xmi: generateXmi(diagram) };
+  }
+
+  /**
+   * Anota el intercambio en `xmi_exchange_jobs`.
+   *
+   * Lo que queda es el registro, no el archivo: quién, cuándo, en qué sentido
+   * y con qué nombre. Es la misma regla que con las imágenes de CU05 —el .xmi
+   * se genera al vuelo al exportar y se descarta en cuanto se ha leído al
+   * importar—, y sirve para lo mismo: poder decir después qué entró y qué
+   * salió de un diagrama.
+   *
+   * Que la anotación falle no puede estropear un intercambio que ya salió
+   * bien, así que se registra el problema y se sigue.
+   */
+  private async record(
+    diagramId: string,
+    userId: string,
+    direction: 'IMPORT' | 'EXPORT',
+    fileName: string,
+  ): Promise<void> {
+    try {
+      await db.orm.public.XmiExchangeJobs.create({
+        diagramId,
+        userId,
+        direction,
+        fileName: fileName.slice(0, 255) as Varchar<255>,
+        status: 'COMPLETED',
+        errorMessage: null,
+        completedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo anotar el intercambio XMI del diagrama ${diagramId}: ` +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
   }
 
   /**
@@ -98,7 +145,7 @@ export class XmiService {
 
     let parsed: ParsedXmi;
     try {
-      parsed = parseXmi(file!.buffer.toString('utf8'));
+      parsed = parseXmi(decodeXmi(file!.buffer));
     } catch (error) {
       if (error instanceof XmiParseError) {
         throw new BadRequestException(error.message);
@@ -209,6 +256,8 @@ export class XmiService {
       relationships += 1;
     }
 
+    await this.record(diagram.id, userId, 'IMPORT', file!.originalname);
+
     return {
       diagram: await this.diagramsService.findOneFull(userId, diagram.id),
       summary: {
@@ -303,6 +352,8 @@ export class XmiService {
   private resolveNames(parsed: ParsedXmi, warnings: string[]): ParsedClass[] {
     const usable: ParsedClass[] = [];
     const taken = new Set<string>();
+    /** Tablas del archivo que traían su propia columna «id». */
+    const withOwnKey: string[] = [];
 
     for (const umlClass of parsed.classes) {
       const name = this.toIdentifier(umlClass.name);
@@ -328,10 +379,29 @@ export class XmiService {
           );
           return [];
         }
+        /*
+         * La columna «id» del archivo no se importa como atributo: la entidad
+         * ya nace con esa clave primaria. No se pierde nada —la tabla sigue
+         * teniendo su «id», y del mismo tipo— y así no acaba habiendo dos
+         * columnas iguales, que es lo que impediría generar el backend.
+         */
+        if (isPrimaryKeyName(attributeName)) {
+          withOwnKey.push(name);
+          return [];
+        }
         return [{ ...attribute, name: attributeName }];
       });
 
       usable.push({ ...umlClass, name, attributes });
+    }
+
+    // Un aviso para todo el archivo, no uno por tabla: en un modelo de
+    // Enterprise Architect las tablas suelen traer todas su «id», y el resumen
+    // de la importación se volvía una lista de lo mismo repetido.
+    if (withOwnKey.length > 0) {
+      warnings.push(
+        `La columna «${PRIMARY_KEY.name}» de ${this.list(withOwnKey)} no se importó como atributo: esa clave primaria la pone la herramienta en toda entidad.`,
+      );
     }
 
     if (usable.length === 0) {
@@ -341,6 +411,13 @@ export class XmiService {
     }
 
     return usable;
+  }
+
+  /** «A, B y C», para un aviso que nombra varias clases. */
+  private list(names: string[]): string {
+    if (names.length === 1) return names[0];
+
+    return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
   }
 
   /** «Orden de Compra» → «OrdenDeCompra»; null si no queda nada aprovechable. */

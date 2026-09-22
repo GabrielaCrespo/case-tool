@@ -43,7 +43,16 @@ export function AssociationClassGlyph({ className }: { className?: string }) {
 
   return (
     <svg viewBox="0 0 44 12" className={className} aria-hidden="true" focusable="false">
-      <line x1={2} y1={6} x2={42} y2={6} stroke={color} strokeWidth={1.5} />
+      {/* Discontinua, como las dos líneas que van a quedar en el lienzo. */}
+      <line
+        x1={2}
+        y1={6}
+        x2={42}
+        y2={6}
+        stroke={color}
+        strokeWidth={1.5}
+        strokeDasharray="3 2"
+      />
       <rect
         x={16}
         y={2}

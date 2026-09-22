@@ -45,12 +45,47 @@ public final class Names {
     return Character.toUpperCase(name.charAt(0)) + name.substring(1);
   }
 
-  /** Nombre de campo o variable: «Cliente» da «cliente». */
+  /**
+   * Nombre de campo o variable: «Cliente» da «cliente» y «CLIENTE» también.
+   *
+   * <p>Se bajan todas las mayúsculas del principio, no sólo la primera, y es
+   * importante que sea así: es exactamente la regla con la que Jackson deduce
+   * el nombre de la propiedad JSON a partir del descriptor de acceso. Con ella,
+   * el campo Java, el {@code getCliente()} y la clave que viaja en el JSON se
+   * llaman igual. Sin ella, una clase escrita en mayúsculas daba el campo
+   * {@code cLIENTE} y la clave {@code cliente}, y quien leyera {@code _meta}
+   * mandaba un nombre que el backend no reconocía.
+   */
   public static String camel(String name) {
     if (name == null || name.isEmpty()) {
       return name;
     }
-    return Character.toLowerCase(name.charAt(0)) + name.substring(1);
+
+    StringBuilder out = new StringBuilder(name.length());
+    int i = 0;
+    while (i < name.length() && Character.isUpperCase(name.charAt(i))) {
+      out.append(Character.toLowerCase(name.charAt(i)));
+      i++;
+    }
+
+    // «ClienteVIP» baja sólo la C; «VIPCliente» baja «VIPC» y deja «liente».
+    if (i == 0) {
+      return name;
+    }
+    return out.append(name, i, name.length()).toString();
+  }
+
+  /**
+   * El nombre con el que un campo viaja en el JSON.
+   *
+   * <p>Jackson no mira el campo sino el descriptor de acceso, así que el nombre
+   * sale de {@code get} + el campo en PascalCase, desandado después con la
+   * misma regla que {@link #camel}. Para casi todos los campos da lo mismo que
+   * ya tenían; para uno escrito en mayúsculas, no. Es el nombre que se publica
+   * en {@code /api/_meta}, porque es el que el cliente tiene que mandar.
+   */
+  public static String jsonProperty(String field) {
+    return camel(pascal(field));
   }
 
   /** Nombre de columna o de tabla: «nombreCliente» da «nombre_cliente». */

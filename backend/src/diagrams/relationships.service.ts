@@ -252,9 +252,9 @@ export class RelationshipsService {
    * Es la forma de modelar un muchos a muchos: «Estudiante» y «Materia» no se
    * unen directamente, sino a través de «EstudianteMateria», con «Estudiante 1
    * : 0..* EstudianteMateria» y «Materia 1 : 0..* EstudianteMateria». La clase
-   * intermedia nace con su clave primaria, porque es una entidad más del
-   * modelo: CU07 leerá las tres y generará las tres tablas. Las dos clases
-   * originales no se tocan.
+   * intermedia es una entidad más del modelo —con su clave primaria «id», como
+   * todas—, así que nace vacía: CU07 leerá las tres y generará las tres tablas.
+   * Las dos clases originales no se tocan.
    *
    * Se crea de una vez, con el mismo gesto de tirar una línea de una clase a
    * otra, en lugar de dibujar primero una asociación y arreglarla después: lo
@@ -300,21 +300,8 @@ export class RelationshipsService {
       `Ya existe una clase llamada «${name}» en el diagrama.`,
     );
 
-    // Sin clave primaria la clase intermedia no sería una entidad generable.
-    const identifier = await db.orm.public.UmlAttributes.create({
-      classId: umlClass.id,
-      name: 'id' as Varchar<150>,
-      dataType: 'Long' as Varchar<50>,
-      isPrimaryKey: true,
-      isNullable: false,
-      defaultValue: null,
-      orderIndex: 0,
-    });
-
     const classResponse = this.diagramsService.toClassResponse(umlClass);
-    const attributeResponse = this.diagramsService.toAttributeResponse(identifier);
     this.diagramsService.publish(diagramId, 'class.created', classResponse, userId);
-    this.diagramsService.publish(diagramId, 'attribute.created', attributeResponse, userId);
 
     const created: RelationshipResponse[] = [];
     for (const end of [source, target]) {
@@ -336,7 +323,7 @@ export class RelationshipsService {
     }
 
     return {
-      class: { ...classResponse, attributes: [attributeResponse], methods: [] },
+      class: { ...classResponse, attributes: [], methods: [] },
       relationships: created,
     };
   }

@@ -1,10 +1,12 @@
 import type { FullDiagramResponse } from './diagrams.service.js';
 import {
+  PRIMARY_KEY,
   STEREOTYPES,
   VISIBILITIES,
   identifierProblem,
   isDataType,
   isDefaultValueCompatible,
+  isPrimaryKeyName,
   isReturnType,
 } from './uml-catalog.js';
 
@@ -13,10 +15,10 @@ import {
  *
  * Es una función pura sobre el modelo ya guardado: las validaciones de cada
  * endpoint impiden guardar una pieza mal formada, pero hay reglas que sólo se
- * pueden comprobar mirando el diagrama entero —que una entidad tenga clave
- * primaria, que una herencia no forme un ciclo, que una relación no apunte a
- * una clase que ya no está—. Es también la puerta de entrada de CU07: si aquí
- * no hay errores, el modelo se puede traducir a Spring Boot.
+ * pueden comprobar mirando el diagrama entero —que una herencia no forme un
+ * ciclo, que una relación no apunte a una clase que ya no está—. Es también la
+ * puerta de entrada de CU07: si aquí no hay errores, el modelo se puede
+ * traducir a Spring Boot.
  */
 
 export type IssueSeverity = 'error' | 'warning';
@@ -181,7 +183,6 @@ export function validateDiagram(diagram: FullDiagramResponse): DiagramValidation
     }
 
     // ---------------------------------------------------------- atributos
-    const primaryKeys = umlClass.attributes.filter((attribute) => attribute.is_primary_key);
     const seenAttributes = new Set<string>();
 
     for (const attribute of umlClass.attributes) {
@@ -254,11 +255,18 @@ export function validateDiagram(diagram: FullDiagramResponse): DiagramValidation
         });
       }
 
-      if (attribute.is_primary_key && attribute.is_nullable) {
+      /*
+       * Un atributo llamado «id» sólo puede venir de un diagrama guardado
+       * antes de que la clave primaria pasara a ponerla la herramienta: el
+       * editor ya no deja crearlo y las importaciones lo descartan. Se avisa
+       * porque el generador lo omite —la columna «id» de la tabla es la clave
+       * primaria, no este atributo— y eso tiene que verse antes de generar.
+       */
+      if (isPrimaryKeyName(attribute.name)) {
         add({
-          severity: 'error',
-          code: 'PRIMARY_KEY_NULLABLE',
-          message: `${at}: una clave primaria no puede admitir nulos.`,
+          severity: 'warning',
+          code: 'ATTRIBUTE_IS_PRIMARY_KEY_NAME',
+          message: `${at}: se omitirá al generar. La clave primaria «${PRIMARY_KEY.name}» la pone la herramienta en todas las entidades; puede borrar este atributo.`,
           element_type: 'ATTRIBUTE',
           element_id: attribute.id,
           class_id: umlClass.id,
@@ -277,46 +285,14 @@ export function validateDiagram(diagram: FullDiagramResponse): DiagramValidation
       }
     }
 
-    if (primaryKeys.length > 1) {
-      add({
-        severity: 'error',
-        code: 'PRIMARY_KEY_DUPLICATED',
-        message: `${where}: tiene ${primaryKeys.length} claves primarias (${primaryKeys
-          .map((attribute) => attribute.name)
-          .join(', ')}); sólo puede tener una.`,
-        element_type: 'CLASS',
-        element_id: umlClass.id,
-        class_id: umlClass.id,
-      });
-    }
-
-    // Una entidad se convertirá en una tabla, y una tabla necesita su @Id.
-    // No es un error, porque el generador sabe salir del paso: si nadie marcó
-    // la clave primaria, toma el atributo que se llame «id» y, si tampoco lo
-    // hay, añade un «Long id» autogenerado. Pero sí se avisa, y diciendo cuál
-    // de las dos cosas va a ocurrir: que el modelo acabe teniendo una columna
-    // que su autor no escribió tiene que verse antes de generar, no después.
-    if (persistent && primaryKeys.length === 0 && !umlClass.is_abstract) {
-      const named = umlClass.attributes.find(
-        (attribute) => attribute.name.toLowerCase() === 'id',
-      );
-      add({
-        severity: 'warning',
-        code: 'ENTITY_WITHOUT_PRIMARY_KEY',
-        message: named
-          ? `${where}: ningún atributo está marcado como clave primaria; se usará «${named.name}» por llamarse así.`
-          : `${where}: no tiene clave primaria; se le añadirá una columna «id» de tipo Long autogenerada.`,
-        element_type: 'CLASS',
-        element_id: umlClass.id,
-        class_id: umlClass.id,
-      });
-    }
-
+    // Ya no se avisa de que falte la clave primaria: toda entidad tiene la
+    // suya, «id», y la pone la herramienta. Una tabla sin ninguna otra columna
+    // sí se dice, porque casi siempre es una entidad a medio describir.
     if (persistent && umlClass.attributes.length === 0) {
       add({
         severity: 'warning',
         code: 'ENTITY_WITHOUT_ATTRIBUTES',
-        message: `${where}: no tiene ningún atributo; su tabla se generará sólo con la clave primaria.`,
+        message: `${where}: no tiene ningún atributo; su tabla se generará sólo con la clave primaria «${PRIMARY_KEY.name}».`,
         element_type: 'CLASS',
         element_id: umlClass.id,
         class_id: umlClass.id,

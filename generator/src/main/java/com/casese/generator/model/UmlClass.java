@@ -34,8 +34,4 @@ public record UmlClass(
   public boolean isPersistent() {
     return stereotype == null || stereotype.isBlank() || hasStereotype("entity");
   }
-
-  public UmlAttribute primaryKey() {
-    return attributes.stream().filter(UmlAttribute::isPrimaryKey).findFirst().orElse(null);
-  }
 }

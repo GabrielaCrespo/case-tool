@@ -115,6 +115,53 @@ export const ASSOCIATION_CLASS_META = {
   hint: 'Une dos entidades a través de una tercera, para un muchos a muchos.',
 } as const
 
+/**
+ * Las dos líneas que sostienen a una entidad intermedia.
+ *
+ * En el modelo una entidad intermedia no es nada especial: es una tabla más,
+ * unida a cada lado con una asociación 1 : 0..*, que es lo que CU07 necesita
+ * para generar el backend. Pero en UML —y en Enterprise Architect— esa caja se
+ * dibuja colgando de la línea que une a las otras dos con un trazo
+ * DISCONTINUO, y es así como se reconoce de un vistazo un muchos a muchos ya
+ * resuelto. Aquí se marcan esas dos líneas para poder dibujarlas igual.
+ *
+ * El patrón es el mismo que reconoce el exportador de CU06: la clase no
+ * participa en ninguna otra relación y las dos que llegan a ella vienen de
+ * clases distintas, con 1 y 0..* o sin multiplicidad ninguna.
+ */
+export function associationClassLinks(relationships: UmlRelationship[]): Set<string> {
+  const touching = new Map<string, UmlRelationship[]>()
+  for (const relationship of relationships) {
+    // Los dos extremos se cuentan por separado, aunque sean la misma clase:
+    // así una relación de una clase consigo misma no se confunde con esto.
+    for (const classId of [relationship.source_class_id, relationship.target_class_id]) {
+      touching.set(classId, [...(touching.get(classId) ?? []), relationship])
+    }
+  }
+
+  const links = new Set<string>()
+
+  for (const [classId, all] of touching) {
+    const isIntermediate =
+      all.length === 2 &&
+      all.every(
+        (link) =>
+          link.relationship_type === 'ASSOCIATION' &&
+          link.target_class_id === classId &&
+          ((link.source_multiplicity === '1' && link.target_multiplicity === '0..*') ||
+            (link.source_multiplicity === null && link.target_multiplicity === null)),
+      ) &&
+      all[0].source_class_id !== all[1].source_class_id
+
+    if (!isIntermediate) continue
+
+    links.add(all[0].id)
+    links.add(all[1].id)
+  }
+
+  return links
+}
+
 /** Color con el que se resalta el elemento seleccionado. */
 export const SELECTED_COLOR = '#4b3be4'
 
@@ -152,6 +199,36 @@ export const DATA_TYPES = [
 ] as const
 
 export const DATA_TYPE_NAMES: string[] = DATA_TYPES.map((type) => type.name)
+
+/**
+ * La clave primaria que lleva toda entidad.
+ *
+ * No se dibuja ni se escribe: la pone la herramienta, y por eso ningún
+ * atributo puede llamarse así. Se enseña como la primera fila de la caja —una
+ * tabla sin su clave primaria no se lee como una tabla— pero no se puede
+ * tocar. La razón de que no se defina a mano es que una clave escrita como
+ * atributo es lo que rompía la generación: dos atributos marcados como clave,
+ * una clave sin tipo o de un tipo que PostgreSQL no puede autogenerar, o una
+ * entidad a la que se le olvidó marcar ninguna.
+ */
+export const PRIMARY_KEY = { name: 'id', dataType: 'Long' } as const
+
+/** ¿Este nombre choca con la clave primaria que pone la herramienta? */
+export function isPrimaryKeyName(value: string): boolean {
+  return value.trim().toLowerCase() === PRIMARY_KEY.name
+}
+
+/**
+ * Motivo por el que el nombre no sirve para un atributo, o null si sirve. Es
+ * el de cualquier identificador, más la clave primaria, que está reservada.
+ */
+export function attributeNameProblem(value: string): string | null {
+  if (isPrimaryKeyName(value)) {
+    return `«${PRIMARY_KEY.name}» está reservado: toda entidad ya tiene esa clave primaria.`
+  }
+
+  return identifierProblem(value)
+}
 
 /**
  * Tipos heredados del catálogo anterior. El backend los sigue aceptando para no

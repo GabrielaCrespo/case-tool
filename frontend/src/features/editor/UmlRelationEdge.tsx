@@ -7,6 +7,12 @@ import type { MarkerShape } from './uml'
 
 export type UmlEdgeData = {
   relationship: UmlRelationship
+  /**
+   * Una de las dos líneas que unen una entidad intermedia con los dos lados
+   * del muchos a muchos. Se dibujan discontinuas, como la clase de asociación
+   * de UML y como las dibuja Enterprise Architect.
+   */
+  associationClass?: boolean
 }
 
 export type UmlEdgeType = Edge<UmlEdgeData, 'uml'>
@@ -84,7 +90,7 @@ export function UmlRelationEdge({
         style={{
           stroke: color,
           strokeWidth: selected ? 2.2 : 1.5,
-          strokeDasharray: meta.dashed ? '7 5' : undefined,
+          strokeDasharray: meta.dashed || data.associationClass === true ? '7 5' : undefined,
         }}
       />
 

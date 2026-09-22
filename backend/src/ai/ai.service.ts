@@ -5,13 +5,11 @@ import { DiagramsService } from '../diagrams/diagrams.service.js';
 import { db } from '../prisma/db.js';
 import { AiExecutorService } from './ai-executor.service.js';
 import type { ExecutionPlan } from './ai-executor.service.js';
-import { CloudinaryService } from './cloudinary.service.js';
+import { GroqService } from './groq.service.js';
 import { fromImageLayout } from './layout.js';
-import { OllamaService } from './ollama.service.js';
 import { diagramContext, imageSystemPrompt, interpretSystemPrompt } from './prompts.js';
-import { SpeechToTextService } from './speech-to-text.service.js';
 import { RELATIONSHIP_LABELS, fold, parseActions, parseImageModel } from './uml-actions.js';
-import type { RawAction, RawImageModel } from './uml-actions.js';
+import type { Point, RawAction, RawImageModel } from './uml-actions.js';
 
 /**
  * CU04 — Asistir el Diseño mediante IA.
@@ -39,20 +37,14 @@ const ACCEPTED_IMAGES: Record<string, string[]> = {
 };
 
 /**
- * Tope de tamaño. No es una limitación técnica de Cloudinary sino del modelo:
- * una imagen más grande no se lee mejor y multiplica el tiempo de análisis.
+ * Tope de tamaño de la imagen que se acepta.
+ *
+ * La imagen viaja al modelo dentro de la petición, codificada en base64, que
+ * engorda los bytes un tercio: con este tope la petición se queda en unos 11 MB
+ * y la API admite 20. Una foto más grande tampoco se leería mejor —el modelo
+ * cobra 2048 tokens por imagen, sea cual sea su resolución—.
  */
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-
-/**
- * Ancho máximo con el que se le enseña la imagen al modelo.
- *
- * Medido con Qwen3-VL sobre el mismo diagrama: 1920 px tarda 177 s y 1280 px
- * tarda 83 s, leyendo exactamente las mismas clases, atributos y relaciones.
- * Por debajo de 1280 no se gana tiempo y se empieza a arriesgar el texto de
- * las cajas, así que ahí está el punto.
- */
-const ANALYSIS_MAX_WIDTH = 1280;
 
 /**
  * Audios que se aceptan al dictar. Son los formatos que produce MediaRecorder
@@ -140,10 +132,12 @@ export interface AiResult {
   diagram: FullDiagramResponse;
 }
 
-/** CU05 añade de dónde salió el diagrama. */
+/**
+ * CU05 añade cuánto se leyó de la imagen. No va la imagen ni ninguna
+ * referencia a ella: se descartó en cuanto el modelo terminó de mirarla.
+ */
 export interface ImageImportResult extends AiResult {
   job_id: string;
-  image_url: string;
   classes_created: number;
   relationships_created: number;
 }
@@ -165,9 +159,7 @@ export class AiService {
   constructor(
     private readonly diagramsService: DiagramsService,
     private readonly executor: AiExecutorService,
-    private readonly ollama: OllamaService,
-    private readonly cloudinary: CloudinaryService,
-    private readonly speech: SpeechToTextService,
+    private readonly groq: GroqService,
   ) {}
 
   // ------------------------------------------------------------------ CU04
@@ -212,7 +204,7 @@ export class AiService {
       throw new BadRequestException('El diagrama indicado no pertenece a ese proyecto.');
     }
 
-    const raw = await this.ollama.askJson(
+    const raw = await this.groq.askJson(
       interpretSystemPrompt(),
       `${diagramContext(diagram)}\n\nInstrucción del usuario:\n${command}`,
     );
@@ -270,8 +262,8 @@ export class AiService {
    * hubiera escrito.
    *
    * Aquí no hay nada de UML. Se comprueba que el audio sea audio, se pide la
-   * transcripción a Faster-Whisper y el texto resultante entra en `interpret`,
-   * el mismo método de siempre. No existe un intérprete de voz: existe un
+   * transcripción a Whisper y el texto resultante entra en `interpret`, el
+   * mismo método de siempre. No existe un intérprete de voz: existe un
    * micrófono que escribe por el usuario.
    */
   async interpretVoice(
@@ -282,7 +274,7 @@ export class AiService {
     const diagramId = this.requiredUuid(diagramIdInput, 'diagram_id');
     this.assertValidAudio(file);
 
-    const transcription = await this.speech.transcribe(file!.buffer, file!.mimetype);
+    const transcription = await this.groq.transcribe(file!.buffer, file!.mimetype);
 
     // El audio no se guarda: lo que tiene valor es lo que se dijo. En
     // ai_command_logs queda la descripción de la grabación y el texto.
@@ -306,10 +298,15 @@ export class AiService {
   /**
    * Convierte una imagen de un diagrama de clases en un diagrama editable.
    *
-   * El orden —validar, subir, analizar, normalizar, validar, ejecutar— es el
-   * del enunciado y tiene su motivo: la imagen se guarda antes de analizarla
-   * para que quede constancia de qué se le pidió leer al modelo, aunque
-   * después el análisis falle.
+   * La imagen no se guarda en ninguna parte: llega, se le enseña al modelo y se
+   * descarta al terminar la petición. No pasa por disco, ni por PostgreSQL, ni
+   * por ningún servicio de terceros que la almacene. De la importación queda
+   * constancia en photo_import_jobs —quién, cuándo, qué archivo y qué se leyó—,
+   * pero de la imagen sólo su nombre, su tipo y su tamaño.
+   *
+   * El orden es validar, anotar, analizar, normalizar, validar y ejecutar. El
+   * trabajo se anota antes de analizar para que quede registro de lo que se
+   * intentó importar aunque el análisis falle después.
    */
   async imageToUml(
     userId: string,
@@ -320,19 +317,13 @@ export class AiService {
     this.assertValidImage(file);
 
     const diagram = await this.diagramsService.findOneFull(userId, diagramId);
-    const image = await this.cloudinary.upload(file!);
 
-    // El trabajo se anota antes de analizar: si Ollama falla o la imagen no
-    // era un diagrama, queda registrado qué se intentó importar y por qué no
-    // salió. La imagen vive en Cloudinary; en PostgreSQL sólo su referencia.
     const job = await db.orm.public.PhotoImportJobs.create({
       diagramId,
       userId,
-      imageUrl: image.imageUrl as Varchar<500>,
-      cloudinaryPublicId: image.cloudinaryPublicId as Varchar<255>,
-      originalFileName: image.originalFileName as Varchar<255>,
-      mimeType: image.mimeType as Varchar<100>,
-      fileSize: image.fileSize,
+      originalFileName: file!.originalname as Varchar<255>,
+      mimeType: file!.mimetype as Varchar<100>,
+      fileSize: file!.size,
       status: 'PROCESSING',
       extractedModel: null,
       errorMessage: null,
@@ -349,24 +340,32 @@ export class AiService {
         warnings: [],
         diagram,
         job_id: job.id,
-        image_url: image.imageUrl,
         classes_created: 0,
         relationships_created: 0,
       };
     };
 
-    // Se analiza una versión reducida: lo que tarda el modelo depende del
-    // tamaño de la imagen, y una foto de móvil sin reducir se pasa de
-    // cualquier espera razonable. Si no se puede obtener, se usa la original.
-    const scaled = await this.cloudinary.readScaled(image, ANALYSIS_MAX_WIDTH);
+    /*
+     * La imagen viaja dentro de la propia petición, codificada en base64.
+     *
+     * Es la forma de enseñársela al modelo sin dejarla en ningún sitio: no hay
+     * URL que servir porque no hay nada guardado. Codificar engorda los bytes
+     * un tercio, así que el tope de 8 MB de la subida deja la petición en unos
+     * 11 MB, holgada frente a los 20 MB que admite la API. Tampoco hace falta
+     * reducir la imagen: el modelo cobra 2048 tokens por imagen sea cual sea su
+     * resolución, de modo que una captura grande no cuesta más ni tarda más.
+     */
+    const dataUri = `data:${file!.mimetype};base64,${file!.buffer.toString('base64')}`;
 
     let raw: unknown;
     try {
-      raw = await this.ollama.askJson(imageSystemPrompt(), 'Transcribe este diagrama de clases.', [
-        (scaled ?? file!.buffer).toString('base64'),
-      ]);
+      raw = await this.groq.askJson(
+        imageSystemPrompt(),
+        'Transcribe este diagrama de clases.',
+        dataUri,
+      );
     } catch (error) {
-      // Ollama apagado, modelo ausente, respuesta ilegible: el trabajo queda
+      // Sin conexión, cuota agotada, respuesta ilegible: el trabajo queda
       // marcado como fallido antes de devolverle el error al usuario.
       await this.closeJob(
         job.id,
@@ -408,8 +407,8 @@ export class AiService {
       await this.closeJob(
         job.id,
         status === 'APPLIED' ? 'COMPLETED' : 'FAILED',
-        // extracted_model guarda lo que se leyó en la imagen, y sólo eso: la
-        // referencia a la imagen tiene sus propias columnas.
+        // extracted_model guarda lo que se leyó en la imagen. Es lo único que
+        // queda de ella: el modelo leído, no la imagen.
         JSON.parse(JSON.stringify(model)) as JsonValue,
         error,
       );
@@ -420,7 +419,6 @@ export class AiService {
       ...result,
       warnings: [...warnings, ...model.problems, ...result.warnings],
       job_id: job.id,
-      image_url: image.imageUrl,
       classes_created: created.classes,
       relationships_created: created.relationships,
     };
@@ -568,6 +566,11 @@ export class AiService {
    * crear las dos deja dos líneas paralelas entre las mismas clases que el
    * usuario tiene que borrar a mano. Se queda una sola: la más concreta, que
    * es la que aporta el adorno que el modelo vio en el segundo vistazo.
+   *
+   * Las entidades intermedias se resuelven antes que nada, porque cambian qué
+   * líneas hay que crear: donde el dibujo tenía una línea entre dos clases con
+   * una caja colgando, el diagrama tiene dos asociaciones hacia esa caja y
+   * ninguna línea directa.
    */
   private relationshipActions(model: RawImageModel, warnings: string[]): RawAction[] {
     /** Cuánto afirma cada tipo: gana el que más dice del dibujo. */
@@ -578,10 +581,17 @@ export class AiService {
       COMPOSITION: 2,
     };
 
+    const intermediates = this.associationClasses(model, warnings);
+
     const chosen = new Map<string, RawImageModel['relationships'][number]>();
 
     for (const relationship of model.relationships) {
-      const pair = [fold(relationship.sourceClass), fold(relationship.targetClass)].sort().join('|');
+      const pair = pairKey(relationship.sourceClass, relationship.targetClass);
+
+      // La línea que sostenía a la entidad intermedia ya está contada: crearla
+      // además dejaría el muchos a muchos que la intermedia venía a resolver.
+      if (intermediates.has(pair)) continue;
+
       const previous = chosen.get(pair);
 
       if (previous === undefined) {
@@ -596,26 +606,159 @@ export class AiService {
       }
     }
 
-    return [...chosen.values()].map((relationship) => {
-      /*
-       * Vuelta de la herencia. El modelo describe el dibujo —de la hija sale
-       * la línea, el triángulo apunta a la madre—, mientras que una acción
-       * CREATE_RELATIONSHIP pone el padre en «sourceClass» y las hijas en
-       * «targetClasses». Se cambia aquí para que la acción signifique lo
-       * mismo venga de una foto o de una instrucción escrita.
-       */
-      const inheritance = relationship.relationshipType === 'INHERITANCE';
+    const actions: RawAction[] = [];
 
-      return {
-        action: 'CREATE_RELATIONSHIP',
-        relationshipType: relationship.relationshipType,
-        sourceClass: inheritance ? relationship.targetClass : relationship.sourceClass,
-        targetClasses: [inheritance ? relationship.sourceClass : relationship.targetClass],
-        sourceMultiplicity: relationship.sourceMultiplicity,
-        targetMultiplicity: relationship.targetMultiplicity,
-        name: null,
-      };
-    });
+    /*
+     * Las dos asociaciones de cada entidad intermedia, con las mismas
+     * multiplicidades que pone la herramienta «Entidad intermedia» del lienzo
+     * (1 : 0..*): una fila de la tabla intermedia pertenece a una fila de cada
+     * extremo, y cada extremo puede tener muchas. Las multiplicidades escritas
+     * en el dibujo eran las de la línea directa, que ya no existe.
+     */
+    for (const { intermediate, ends } of intermediates.values()) {
+      for (const end of ends) {
+        actions.push({
+          action: 'CREATE_RELATIONSHIP',
+          relationshipType: 'ASSOCIATION',
+          sourceClass: end,
+          targetClasses: [intermediate],
+          sourceMultiplicity: '1',
+          targetMultiplicity: '0..*',
+          name: null,
+        });
+      }
+    }
+
+    actions.push(
+      ...[...chosen.values()].map((relationship): RawAction => {
+        /*
+         * Vuelta de la herencia. El modelo describe el dibujo —de la hija sale
+         * la línea, el triángulo apunta a la madre—, mientras que una acción
+         * CREATE_RELATIONSHIP pone el padre en «sourceClass» y las hijas en
+         * «targetClasses». Se cambia aquí para que la acción signifique lo
+         * mismo venga de una foto o de una instrucción escrita.
+         */
+        const inheritance = relationship.relationshipType === 'INHERITANCE';
+
+        return {
+          action: 'CREATE_RELATIONSHIP',
+          relationshipType: relationship.relationshipType,
+          sourceClass: inheritance ? relationship.targetClass : relationship.sourceClass,
+          targetClasses: [inheritance ? relationship.sourceClass : relationship.targetClass],
+          sourceMultiplicity: relationship.sourceMultiplicity,
+          targetMultiplicity: relationship.targetMultiplicity,
+          name: null,
+        };
+      }),
+    );
+
+    return actions;
+  }
+
+  /**
+   * Las entidades intermedias del dibujo, indexadas por el par de clases que
+   * unen.
+   *
+   * Una clase de asociación es una caja atada por una línea discontinua a la
+   * línea que une otras dos clases, y es lo que resuelve un muchos a muchos:
+   * DETALLE_VENTA entre NOTAVENTA y PRODUCTO. En el modelo guardado no existe
+   * como tal —CU02 no tiene ese concepto—, sino como lo que acaba siendo una
+   * tabla: la clase y las dos asociaciones que la unen a los extremos, igual
+   * que las crea la herramienta «Entidad intermedia» del lienzo.
+   *
+   * Se reconocen por dos caminos. El primero es que el modelo lo diga, que es
+   * lo que le pide el prompt. El segundo existe porque el primero falla: una
+   * línea discontinua fina se pierde con facilidad al reducir la imagen, y
+   * entonces la caja llega sin ninguna relación. Lo que la delata es dónde
+   * está dibujada, y sólo se da por buena cuando no queda duda razonable.
+   */
+  private associationClasses(
+    model: RawImageModel,
+    warnings: string[],
+  ): Map<string, { intermediate: string; ends: [string, string] }> {
+    const found = new Map<string, { intermediate: string; ends: [string, string] }>();
+    const known = new Map(model.classes.map((umlClass) => [fold(umlClass.name), umlClass.name]));
+
+    const declare = (intermediate: string, source: string, target: string, how: string): void => {
+      const pair = pairKey(source, target);
+      if (found.has(pair)) return;
+
+      found.set(pair, { intermediate, ends: [source, target] });
+      warnings.push(
+        `${intermediate} ${how}: se creó como entidad intermedia entre ${source} y ${target}, unida a las dos, en lugar de la línea directa.`,
+      );
+    };
+
+    for (const relationship of model.relationships) {
+      if (relationship.associationClass === null) continue;
+
+      // El nombre tiene que ser el de una caja que se leyó: si el modelo se
+      // inventó ahí un nombre, la línea se crea tal como está dibujada.
+      const intermediate = known.get(fold(relationship.associationClass));
+      if (intermediate === undefined) continue;
+
+      const ends = [fold(relationship.sourceClass), fold(relationship.targetClass)];
+      if (ends.includes(fold(intermediate))) continue;
+
+      declare(
+        intermediate,
+        relationship.sourceClass,
+        relationship.targetClass,
+        'colgaba de la línea',
+      );
+    }
+
+    // Segundo camino: las cajas que se quedaron sin ninguna línea.
+    const connected = new Set<string>();
+    for (const relationship of model.relationships) {
+      connected.add(fold(relationship.sourceClass));
+      connected.add(fold(relationship.targetClass));
+      if (relationship.associationClass !== null) {
+        connected.add(fold(relationship.associationClass));
+      }
+    }
+
+    for (const umlClass of model.classes) {
+      const box = umlClass.position;
+      if (connected.has(fold(umlClass.name)) || box === null) continue;
+
+      /*
+       * Sólo se mira contra los muchos a muchos: son las líneas que no se
+       * pueden convertir en tablas tal cual, y por eso las únicas de las que
+       * cuelga una caja en un diagrama de datos. Y sólo se resuelve si encaja
+       * en una: con dos candidatas no hay forma de saber de cuál era.
+       */
+      const candidates = model.relationships.filter(
+        (relationship) =>
+          relationship.relationshipType === 'ASSOCIATION' &&
+          isMany(relationship.sourceMultiplicity) &&
+          isMany(relationship.targetMultiplicity) &&
+          !found.has(pairKey(relationship.sourceClass, relationship.targetClass)) &&
+          hangsFrom(
+            box,
+            this.positionOf(model, relationship.sourceClass),
+            this.positionOf(model, relationship.targetClass),
+          ),
+      );
+
+      if (candidates.length !== 1) continue;
+
+      declare(
+        umlClass.name,
+        candidates[0].sourceClass,
+        candidates[0].targetClass,
+        'se leyó sin ninguna línea, pero estaba dibujada sobre la que une a las otras dos',
+      );
+    }
+
+    return found;
+  }
+
+  /** Dónde estaba dibujada una clase dentro de la imagen, si se distinguió. */
+  private positionOf(model: RawImageModel, className: string): Point | null {
+    return (
+      model.classes.find((umlClass) => fold(umlClass.name) === fold(className))?.position ?? null
+    );
   }
 
   // ------------------------------------------------------------ validación
@@ -785,4 +928,48 @@ export class AiService {
       this.logger.error('No se pudo registrar la instrucción en ai_command_logs', error);
     }
   }
+}
+
+// --------------------------------------------------------------- geometría
+
+/**
+ * Las dos clases de una línea, en una clave que no depende del orden: el modelo
+ * puede nombrar los extremos al revés de un vistazo al siguiente y seguiría
+ * siendo la misma línea del dibujo.
+ */
+function pairKey(source: string, target: string): string {
+  return [fold(source), fold(target)].sort().join('|');
+}
+
+/** Multiplicidades que significan «muchos». */
+function isMany(multiplicity: string | null): boolean {
+  return multiplicity !== null && (multiplicity === '*' || multiplicity.endsWith('..*'));
+}
+
+/**
+ * ¿La caja está colgada de la línea que une a las otras dos?
+ *
+ * Es la forma de una clase de asociación en el dibujo: se coloca frente a la
+ * mitad de la línea y separada de ella, ni más allá de uno de los extremos ni
+ * tan lejos como para ser otra cosa. Se le piden las dos condiciones: que su
+ * proyección sobre la línea caiga entre los dos extremos —con algo de holgura,
+ * porque estas coordenadas las estima el modelo a ojo— y que su distancia a la
+ * línea no pase de lo que miden los extremos entre sí.
+ */
+function hangsFrom(box: Point, source: Point | null, target: Point | null): boolean {
+  if (source === null || target === null) return false;
+
+  const spanX = target.x - source.x;
+  const spanY = target.y - source.y;
+  const lengthSquared = spanX * spanX + spanY * spanY;
+  if (lengthSquared === 0) return false;
+
+  // Dónde cae la caja a lo largo de la línea: 0 en un extremo, 1 en el otro.
+  const along = ((box.x - source.x) * spanX + (box.y - source.y) * spanY) / lengthSquared;
+  if (along < -0.15 || along > 1.15) return false;
+
+  const awayX = box.x - (source.x + along * spanX);
+  const awayY = box.y - (source.y + along * spanY);
+
+  return awayX * awayX + awayY * awayY <= lengthSquared;
 }

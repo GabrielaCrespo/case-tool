@@ -40,10 +40,11 @@ Reglas:
 - Usa exactamente los nombres de clase y de atributo que aparecen en el diagrama actual.
 - Una instrucción puede producir varias acciones.
 - Nunca inventes coordenadas: sólo pon "position" si la instrucción da números.
+- No pongas un atributo "id": toda entidad tiene ya esa clave primaria y la pone la herramienta. De «crea Cliente con id, nombre y correo» salen sólo "nombre" y "correo".
 
 Acciones disponibles:
 
-{"action":"CREATE_CLASS","className":"Cliente","attributes":[{"name":"id","type":"Integer"},{"name":"nombre","type":"String"}]}
+{"action":"CREATE_CLASS","className":"Cliente","attributes":[{"name":"nombre","type":"String"},{"name":"correo","type":"String"}]}
 {"action":"UPDATE_CLASS","className":"Cliente","newName":"ClienteFinal"}
 {"action":"DELETE_CLASS","className":"Cliente"}
 {"action":"ADD_ATTRIBUTE","className":"Cliente","attributes":[{"name":"telefono","type":"String"}]}
@@ -132,6 +133,23 @@ export function diagramContext(diagram: FullDiagramResponse): string {
  * la orientación de la herencia, descrita por el dibujo: de dónde sale la
  * línea y a dónde apunta el triángulo, que es lo que el modelo está mirando y
  * coincide con cómo se guarda en uml_relationships.
+ *
+ * Lo que aquí NO se pide, a diferencia de CU04, es que se salte la columna
+ * «id»: la clave primaria la pone la herramienta, pero pedírselo al lector de
+ * imágenes salió mal. Al añadir esa regla —una excepción a «transcribe sólo lo
+ * que se ve», y en mayúsculas, compitiendo con las de más abajo— el modelo
+ * dejó de reconocer la entidad intermedia del diagrama de nota de venta, que
+ * es la lectura más delicada y la que más importa. Aquí se transcribe el
+ * dibujo entero y el «id» lo descarta después el ejecutor (ai-executor), que
+ * es determinista y no se distrae.
+ *
+ * La entidad intermedia se pide de la única forma que un lector de imágenes
+ * sabe hacer bien: describiendo lo que hay dibujado. Antes se le pedía que
+ * sustituyera la línea discontinua por dos asociaciones hacia la caja, y eso
+ * es una transformación, no una transcripción: el modelo se perdía y la caja
+ * acababa importada suelta, sin ninguna relación. Ahora sólo tiene que decir
+ * de qué línea cuelga —«associationClass»— y las dos asociaciones las escribe
+ * ai.service.ts, igual que la herramienta «Entidad intermedia» del lienzo.
  */
 export function imageSystemPrompt(): string {
   return `Eres un lector de diagramas. Observas una imagen y transcribes lo que hay dibujado.
@@ -168,10 +186,25 @@ Reglas:
 - En INHERITANCE, "sourceClass" es la clase de la que sale la línea (la hija) y
   "targetClass" es aquella a la que apunta el triángulo (la padre).
 - En AGGREGATION y COMPOSITION, "sourceClass" es la clase que tiene el rombo pegado (el todo).
-- Clase de asociación: una caja unida con una línea DISCONTINUA a otra línea que
-  une dos clases. Transcríbela como una clase normal y, en lugar de la línea
-  discontinua, escribe dos relaciones ASSOCIATION: una desde cada una de las dos
-  clases que esa línea unía hacia la caja intermedia.
+- ENTIDAD INTERMEDIA (clase de asociación). Es una caja unida por una línea
+  DISCONTINUA al punto medio de la línea que une otras dos clases, y suele
+  quedar debajo o encima de esa línea, entre las dos. Los diagramas de ventas,
+  pedidos o matrículas casi siempre tienen una: DETALLE_VENTA, DETALLE,
+  DETALLE_PEDIDO, ITEM, LINEA, MATRICULA, INSCRIPCION.
+  La caja se transcribe en "classes" como cualquier otra clase, con sus
+  atributos, y la línea discontinua NO se escribe como una relación aparte:
+  se anota el nombre de la caja en "associationClass", dentro de la relación
+  que une a las dos clases de los extremos.
+  Ejemplo: NOTAVENTA y PRODUCTO unidas por una línea con "0..*" y "1..*", y
+  DETALLE_VENTA colgando de ella con una línea discontinua, se escribe:
+  {"relationshipType":"ASSOCIATION","sourceClass":"NOTAVENTA","targetClass":"PRODUCTO","sourceMultiplicity":"0..*","targetMultiplicity":"1..*","associationClass":"DETALLE_VENTA"}
+  Sólo eso: ni relaciones de NOTAVENTA a DETALLE_VENTA ni de PRODUCTO a
+  DETALLE_VENTA. De unirla a las dos se encarga la herramienta.
+- Antes de responder, repasa las cajas una por una: ninguna puede quedarse
+  suelta. Cada caja del dibujo tiene que aparecer en alguna relación, o como
+  el "associationClass" de una de ellas. Si una caja no toca ninguna línea
+  continua pero hay una discontinua que sale de ella, es una entidad
+  intermedia y va en "associationClass".
 - Copia las multiplicidades tal como están escritas junto a cada extremo.
   Las únicas formas válidas son "1", "0..1", "0..*", "1..*", "*" o un número suelto.
   Si un extremo no tiene nada escrito, o lo que hay no es una de esas formas,

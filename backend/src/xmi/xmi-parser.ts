@@ -122,6 +122,10 @@ const parser = new XMLParser({
   removeNSPrefix: true,
   parseAttributeValue: false,
   trimValues: true,
+  // Una tilde puede venir escrita como «&#237;» —así la escribe esta misma
+  // herramienta al exportar, para no depender de la codificación del archivo—.
+  // Sin esto, «Categoría» llegaría como «Categor&#237;a».
+  htmlEntities: true,
   // Un elemento que aparece una sola vez llega como objeto y no como lista;
   // `asList` se encarga de que el recorrido no tenga que distinguirlo.
   isArray: () => false,
