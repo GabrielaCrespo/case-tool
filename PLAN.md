@@ -408,6 +408,21 @@ pesos», corriendo en el teléfono.
 Reconocimiento de voz sin conexión, con su modelo en español descargado con la app. Es lo que
 permite que funcione en modo avión; una API de transcripción no valdría.
 
+**Decidido e implementado:** Moonshine base en español (cuantizado, ~65 MB) con `sherpa_onnx`,
+más Silero VAD para saber cuándo se deja de hablar, **dentro del APK** en `mobile/assets/voz`. Se
+graba con `record` y se transcribe en un isolate aparte al terminar la frase. Se descartó el
+reconocedor de Android (`speech_to_text` con `onDevice`): sin el paquete de español de Google
+descargado en el teléfono falla en modo avión, y eso no lo controla la aplicación. La licencia
+del modelo en español (Moonshine Community License) permite el uso académico.
+
+Trampas conocidas:
+- El APK se construye con `flutter build apk --release --split-per-abi`. `--target-platform` no
+  filtra las librerías nativas de los plugins (ONNX Runtime, MediaPipe) y el APK único pasa de
+  200 MB; el de `arm64-v8a` queda en ~134 MB.
+- Para probar el transcriptor con `flutter test` en Windows hay que cargar antes el
+  `onnxruntime.dll` de `sherpa_onnx_windows`: Windows trae el suyo (1.17) en System32 y se carga
+  ése, que no sirve.
+
 ### 3.2 Intérprete local
 
 Un modelo pequeño (Gemma 1B por `flutter_gemma`), **descargado en el primer arranque, no dentro
@@ -465,6 +480,11 @@ id_map(local_id, entity, server_id)
   cambió entre medias. Ese 409 marca el registro en conflicto y se pregunta cuál se queda, el
   local o el del servidor. **Sin mezclas automáticas.**
 - **Indicador permanente**: conectado, sin red, o cuántas operaciones esperan.
+- **Sin red no se pregunta al servidor**: el repositorio consulta la conectividad antes de cada
+  operación. Intentarlo siempre hacía que un alta en modo avión esperara el plazo de la conexión.
+- **Al conectar y al sincronizar se traen todas las entidades** (`refreshAll`), para que sin red
+  esté todo y no sólo lo que se abrió antes.
+- **La lista de registros observa la base local** (Drift `watch`), no la respuesta del servidor.
 
 ### Criterio de aceptación de la fase 4
 

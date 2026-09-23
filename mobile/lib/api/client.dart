@@ -12,7 +12,12 @@ class BackendClient {
       : _dio = Dio(
           BaseOptions(
             baseUrl: baseUrl,
-            connectTimeout: const Duration(seconds: 10),
+            // Lo que se espera a que el servidor conteste antes de guardar en
+            // el teléfono. Sólo se llega a esperar cuando el sistema dice que
+            // hay red y no la hay de verdad (una wifi sin salida, cobertura
+            // de una raya); sin red ni se intenta. Cinco segundos sobran para
+            // abrir una conexión que funciona.
+            connectTimeout: const Duration(seconds: 5),
             receiveTimeout: const Duration(seconds: 20),
             // Los errores se interpretan aquí abajo, no los lanza Dio: un 400
             // con los campos que fallan es una respuesta útil, no una avería.

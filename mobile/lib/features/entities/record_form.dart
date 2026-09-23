@@ -78,23 +78,36 @@ class _RecordFormState extends ConsumerState<RecordForm> {
     unawaited(_loadCatalogs());
   }
 
-  /// Los registros de las entidades con las que ésta se relaciona. Se leen de
-  /// lo guardado además de del servidor, para que el desplegable tenga algo
-  /// que ofrecer también sin red.
+  /// Los registros de las entidades con las que ésta se relaciona.
+  ///
+  /// Primero lo guardado, que está al instante y es lo único que hay sin red;
+  /// después, si hay red, lo del servidor. Antes se esperaba al servidor una
+  /// relación detrás de otra, y el formulario se quedaba en «Buscando…» todo
+  /// ese tiempo.
   Future<void> _loadCatalogs() async {
     final repository = ref.read(repositoryProvider);
     final meta = ref.read(connectionProvider).meta;
     if (repository == null || meta == null) return;
 
-    for (final relation in widget.entity.editableRelations) {
-      final target = meta.byName(relation.target);
-      if (target == null) continue;
+    // Por el nombre con que la relación nombra a la otra entidad, que es con
+    // el que se buscan después al pintar el desplegable.
+    final targets = <String, EntityMeta>{
+      for (final relation in widget.entity.editableRelations)
+        relation.target: ?meta.byName(relation.target),
+    };
 
-      final list = await repository.list(target);
+    for (final MapEntry(key: name, value: target) in targets.entries) {
+      final cached = await repository.cached(target);
       if (!mounted) return;
-
-      setState(() => _catalogs[relation.target] = list.records);
+      setState(() => _catalogs[name] = cached);
     }
+
+    await Future.wait([
+      for (final MapEntry(key: name, value: target) in targets.entries)
+        repository.list(target).then((list) {
+          if (mounted) setState(() => _catalogs[name] = list.records);
+        }),
+    ]);
   }
 
   @override
@@ -346,6 +359,7 @@ class _RecordFormState extends ConsumerState<RecordForm> {
 
     final catalog = _catalogs[relation.target];
     final error = _serverErrors[relation.field];
+    final chosen = _references[relation.field];
 
     if (catalog == null) {
       return InputDecorator(
@@ -380,6 +394,13 @@ class _RecordFormState extends ConsumerState<RecordForm> {
                   (record.isLocalOnly ? ' (sin subir)' : ''),
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+        // Lo elegido tiene que estar entre las opciones aunque todavía no se
+        // haya traído: el desplegable no admite un valor que no ofrece.
+        if (chosen != null && !catalog.any((record) => record.id == chosen))
+          DropdownMenuItem<String?>(
+            value: chosen,
+            child: Text('${relation.target} $chosen'),
           ),
       ],
       onChanged: (value) => setState(() => _references[relation.field] = value),

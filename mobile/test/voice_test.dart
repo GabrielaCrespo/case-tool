@@ -85,6 +85,60 @@ void main() {
       expect(understand('qué hora es'), isEmpty);
       expect(understand(''), isEmpty);
     });
+
+    // Las frases que se probaron en el teléfono de verdad. Se fijan aquí para
+    // que una mejora de la gramática no se lleve por delante lo que ya se vio
+    // funcionar.
+    group('frases probadas en el teléfono', () {
+      test('«registrar la categoría limpieza» con artículo y tilde', () {
+        // El diagrama de esta prueba no tiene CATEGORIA, así que se comprueba
+        // la forma sobre CLIENTE, que es la misma: artículo, entidad y valor.
+        final operations = understand('registrar el cliente limpieza');
+
+        expect(operations, hasLength(1));
+        expect(operations.first.entity.name, 'CLIENTE');
+        expect(operations.first.values['nombre'], 'limpieza');
+      });
+
+      test('«nueva cliente Ana» sin verbo conjugado', () {
+        final operations = understand('nueva cliente Ana');
+
+        expect(operations, hasLength(1));
+        expect(operations.first.values['nombre'], 'Ana');
+      });
+
+      test('«crear cliente Juan con teléfono 777»', () {
+        final operations = understand('crear cliente Juan con telefono 777');
+
+        expect(operations.first.values['telefono'], '777');
+      });
+    });
+
+    // Lo que devuelve el modelo de voz del teléfono (Moonshine) tal cual:
+    // con mayúscula al principio, tildes y punto final. Son sus salidas reales
+    // para esas frases dichas en voz alta.
+    group('frases como las escribe el modelo de voz', () {
+      test('mayúscula, tilde y punto final', () {
+        final operations =
+            understand('Registrar cliente Juan con teléfono 777.');
+
+        expect(operations, hasLength(1));
+        expect(operations.first.entity.name, 'CLIENTE');
+        expect(operations.first.values['nombre'], 'Juan');
+        expect(operations.first.values['telefono'], '777');
+      });
+
+      test('la frase del enunciado, con artículo y punto', () {
+        final operations =
+            understand('Registrar al cliente María y cobrarle 10 pesos.');
+
+        expect(operations, hasLength(2));
+        expect(operations.first.entity.name, 'CLIENTE');
+        expect(operations.first.values['nombre'], 'María');
+        expect(operations.last.entity.name, 'NOTAVENTA');
+        expect(operations.last.values['monto'], 10);
+      });
+    });
   });
 
   group('la comprobación contra el modelo', () {

@@ -61,6 +61,21 @@ class ConnectionController extends StateNotifier<ConnectionState> {
     state = const ConnectionState.connecting();
     final client = BackendClient(clean);
 
+    // Sin red no se pregunta al servidor: se entra ya con el modelo guardado,
+    // en vez de dejar la pantalla de carga hasta que venza el plazo.
+    if (!await _hasNetwork()) {
+      final cached = await _cachedMeta(clean);
+
+      if (cached != null) {
+        state = ConnectionState.connected(
+          client: client,
+          meta: cached,
+          offline: true,
+        );
+        return;
+      }
+    }
+
     try {
       final raw = await client.metaJson();
       final meta = ModelMeta.fromJson(raw);
@@ -82,6 +97,15 @@ class ConnectionController extends StateNotifier<ConnectionState> {
         'No se pudo hablar con ese backend. Compruebe la dirección y que haya '
         'conexión; la primera vez hace falta red para conocer el modelo.',
       );
+    }
+  }
+
+  static Future<bool> _hasNetwork() async {
+    try {
+      final results = await Connectivity().checkConnectivity();
+      return results.any((result) => result != ConnectivityResult.none);
+    } catch (_) {
+      return true; // Si no se sabe, se intenta.
     }
   }
 
@@ -195,6 +219,9 @@ final repositoryProvider = Provider<OfflineRepository?>((ref) {
     database: ref.watch(databaseProvider),
     client: connection.client!,
     meta: connection.meta!,
+    // Se lee en el momento de cada operación, no al crear el repositorio: la
+    // red va y viene mientras la aplicación está abierta.
+    isOnline: () => ref.read(connectivityProvider).value ?? true,
   );
 });
 

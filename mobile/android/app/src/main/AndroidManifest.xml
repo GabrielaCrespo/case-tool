@@ -6,7 +6,8 @@
          cuanto vuelva la conexión. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
-    <!-- CU09 — Dictar. La transcripción es del propio dispositivo. -->
+    <!-- CU09 — Dictar. Se graba el micrófono y lo transcribe el modelo de voz
+         que viaja en el APK, no el reconocedor del sistema. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
 
     <!-- Escanear el código QR que enseña el editor al publicar. -->
@@ -54,12 +55,6 @@
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
-        </intent>
-        <!-- El reconocedor de voz del sistema, que es quien transcribe sin
-             conexión. Sin esta declaración Android no lo deja ver y
-             speech_to_text no encuentra ningún motor. -->
-        <intent>
-            <action android:name="android.speech.RecognitionService"/>
         </intent>
     </queries>
 </manifest>

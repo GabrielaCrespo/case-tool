@@ -201,6 +201,7 @@ class GrammarInterpreter {
   /// viene detrás hasta el siguiente nombre de campo.
   Map<String, dynamic> _pairs(List<String> words, EntityMeta entity) {
     final values = <String, dynamic>{};
+    int? firstNamed;
 
     var index = 0;
     while (index < words.length) {
@@ -210,6 +211,7 @@ class GrammarInterpreter {
         index++;
         continue;
       }
+      firstNamed ??= index;
 
       final value = <String>[];
       var next = index + 1;
@@ -227,12 +229,18 @@ class GrammarInterpreter {
       index = next;
     }
 
-    // Nada emparejado y hay un solo texto obligatorio: lo que se dictó después
-    // de la entidad es ese valor. Es lo que hace que «registrar cliente Juan»
-    // funcione sin decir «nombre».
-    if (values.isEmpty) {
-      final loose = _loose(words, entity);
-      if (loose != null) values.addAll(loose);
+    // Lo que se dictó entre la entidad y el primer campo nombrado —o hasta el
+    // final, si no se nombró ninguno— es el valor del texto obligatorio. Es lo
+    // que hace que «registrar cliente Juan» funcione sin decir «nombre».
+    //
+    // Antes sólo se miraba cuando no se había nombrado ningún campo, y en
+    // «registrar cliente Juan con teléfono 777» el Juan se perdía. Es justo
+    // como se habla, y como lo escribe el modelo de voz.
+    final loose = _loose(words.sublist(0, firstNamed ?? words.length), entity);
+    if (loose != null) {
+      for (final MapEntry(:key, :value) in loose.entries) {
+        values.putIfAbsent(key, () => value);
+      }
     }
     return values;
   }

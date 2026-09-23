@@ -23,11 +23,22 @@ class OfflineRepository {
     required this.database,
     required this.client,
     required this.meta,
-  });
+    bool Function()? isOnline,
+  }) : _isOnline = isOnline ?? _assumeOnline;
 
   final LocalDatabase database;
   final BackendClient client;
   final ModelMeta meta;
+
+  /// Si el teléfono tiene red, según el sistema.
+  ///
+  /// Cuando dice que no, ni se intenta hablar con el servidor. Antes se
+  /// intentaba siempre, y sin red eso era esperar a que venciera el plazo de
+  /// la conexión para acabar haciendo lo mismo que se hace sin red: ése era
+  /// el motivo de que dar de alta un registro en modo avión tardara tanto.
+  final bool Function() _isOnline;
+
+  static bool _assumeOnline() => true;
 
   /// Qué backend es éste. El mismo teléfono puede haberse conectado a varios y
   /// lo guardado de uno no tiene nada que ver con lo del otro.
@@ -46,33 +57,69 @@ class OfflineRepository {
   /// Devuelve siempre algo, aunque la red falle: es justo el caso para el que
   /// existe todo esto.
   Future<CachedList> list(EntityMeta entity) async {
-    try {
-      final rows = await client.list(entity);
-      await _replaceCache(entity, rows);
+    if (_isOnline()) {
+      try {
+        final rows = await client.list(entity);
+        await _replaceCache(entity, rows);
 
-      return CachedList(
-        records: await _readCache(entity),
-        fromNetwork: true,
-        syncedAt: DateTime.now(),
-      );
-    } catch (_) {
-      // Sin red, o el servidor no contesta: vale lo último que se trajo.
-      final records = await _readCache(entity);
-
-      return CachedList(
-        records: records,
-        fromNetwork: false,
-        syncedAt: records.isEmpty
-            ? null
-            : records
-                .map((record) => record.updatedAt)
-                .reduce((a, b) => a.isAfter(b) ? a : b),
-      );
+        return CachedList(
+          records: await _readCache(entity),
+          fromNetwork: true,
+          syncedAt: DateTime.now(),
+        );
+      } catch (_) {
+        // El servidor no contesta: vale lo último que se trajo.
+      }
     }
+
+    final records = await _readCache(entity);
+
+    return CachedList(
+      records: records,
+      fromNetwork: false,
+      syncedAt: records.isEmpty
+          ? null
+          : records
+              .map((record) => record.updatedAt)
+              .reduce((a, b) => a.isAfter(b) ? a : b),
+    );
+  }
+
+  /// Trae del servidor todas las entidades, no sólo la que se está mirando.
+  ///
+  /// Sin esto, sin red sólo se podía consultar lo que se hubiera abierto antes
+  /// con conexión, y los desplegables de las relaciones salían vacíos si nunca
+  /// se había entrado en la otra entidad. Se llama al conectar y cada vez que
+  /// se sincroniza.
+  ///
+  /// Se para en el primer fallo: si el servidor no contesta a una entidad, no
+  /// va a contestar a la siguiente, y seguir sería esperar el mismo plazo una
+  /// vez por entidad.
+  Future<bool> refreshAll() async {
+    if (!_isOnline()) return false;
+
+    for (final entity in meta.usable) {
+      try {
+        await _replaceCache(entity, await client.list(entity));
+      } catch (_) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /// Lo guardado de una entidad, sin tocar la red.
   Future<List<LocalRecord>> cached(EntityMeta entity) => _readCache(entity);
+
+  /// Lo guardado de una entidad, avisando cada vez que cambia.
+  ///
+  /// Es lo que enseña la lista de registros. Un alta aparece en cuanto se
+  /// guarda en el teléfono, sin esperar a que el servidor devuelva la lista
+  /// entera; y cuando la sincronización cambia un identificador local por el
+  /// del servidor, la lista se entera, en vez de seguir ofreciendo un
+  /// registro que ya no existe con ese nombre.
+  Stream<List<LocalRecord>> watch(EntityMeta entity) =>
+      _cacheQuery(entity).watch().map((rows) => rows.map(_fromRow).toList());
 
   // --------------------------------------------------------------- escritura
 
@@ -85,24 +132,28 @@ class OfflineRepository {
     EntityMeta entity,
     Map<String, dynamic> values,
   ) async {
-    try {
-      final saved = await client.create(entity, values);
+    if (_isOnline()) {
+      try {
+        final saved = await client.create(entity, values);
 
-      await _putCache(entity, saved, dirty: false);
-      return _toRecord(entity, saved, dirty: false);
-    } on ValidationFailure {
-      rethrow; // Está mal escrito: no se encola, se corrige.
-    } on ConflictFailure {
-      rethrow;
-    } catch (_) {
-      final localId = '$localPrefix${DateTime.now().microsecondsSinceEpoch}';
-      final pending = {...values, entity.idField.name: localId};
-
-      await _putCache(entity, pending, dirty: true);
-      await _enqueue(entity, 'CREATE', values, localId: localId);
-
-      return _toRecord(entity, pending, dirty: true);
+        await _putCache(entity, saved, dirty: false);
+        return _toRecord(entity, saved, dirty: false);
+      } on ValidationFailure {
+        rethrow; // Está mal escrito: no se encola, se corrige.
+      } on ConflictFailure {
+        rethrow;
+      } catch (_) {
+        // El servidor no contesta: se guarda como si no hubiera red.
+      }
     }
+
+    final localId = '$localPrefix${DateTime.now().microsecondsSinceEpoch}';
+    final pending = {...values, entity.idField.name: localId};
+
+    await _putCache(entity, pending, dirty: true);
+    await _enqueue(entity, 'CREATE', values, localId: localId);
+
+    return _toRecord(entity, pending, dirty: true);
   }
 
   /// Guarda los cambios de un registro.
@@ -123,24 +174,31 @@ class OfflineRepository {
       return _toRecord(entity, {...values, entity.idField.name: id}, dirty: true);
     }
 
-    try {
-      final saved = await client.update(entity, id, values);
+    // Si ya hay una edición de este registro esperando en la cola, ésta no
+    // puede adelantarla: llevan la misma versión, y la que llegara segunda
+    // al servidor daría un conflicto que nadie provocó.
+    if (_isOnline() && !await _hasPendingUpdate(entity, id)) {
+      try {
+        final saved = await client.update(entity, id, values);
 
-      await _putCache(entity, saved, dirty: false);
-      return _toRecord(entity, saved, dirty: false);
-    } on ValidationFailure {
-      rethrow;
-    } on ConflictFailure {
-      // Alguien lo cambió antes. No se mezcla nada: se marca y que decida
-      // quien está delante.
-      await _markConflict(entity, id, values);
-      rethrow;
-    } catch (_) {
-      await _putCache(entity, {...values, entity.idField.name: id}, dirty: true);
-      await _enqueue(entity, 'UPDATE', values, serverId: id);
-
-      return _toRecord(entity, {...values, entity.idField.name: id}, dirty: true);
+        await _putCache(entity, saved, dirty: false);
+        return _toRecord(entity, saved, dirty: false);
+      } on ValidationFailure {
+        rethrow;
+      } on ConflictFailure {
+        // Alguien lo cambió antes. No se mezcla nada: se marca y que decida
+        // quien está delante.
+        await _markConflict(entity, id, values);
+        rethrow;
+      } catch (_) {
+        // El servidor no contesta: se guarda como si no hubiera red.
+      }
     }
+
+    await _putCache(entity, {...values, entity.idField.name: id}, dirty: true);
+    await _enqueueUpdate(entity, id, values);
+
+    return _toRecord(entity, {...values, entity.idField.name: id}, dirty: true);
   }
 
   Future<void> delete(EntityMeta entity, String id) async {
@@ -152,15 +210,36 @@ class OfflineRepository {
       return;
     }
 
-    try {
-      await client.delete(entity, id);
-      await _removeCache(entity, id);
-    } on NotFoundFailure {
-      await _removeCache(entity, id); // Ya no estaba; el efecto es el mismo.
-    } catch (_) {
-      await _removeCache(entity, id);
-      await _enqueue(entity, 'DELETE', const {}, serverId: id);
+    if (_isOnline()) {
+      try {
+        await client.delete(entity, id);
+        await _forget(entity, id);
+        return;
+      } on NotFoundFailure {
+        await _forget(entity, id); // Ya no estaba; el efecto es el mismo.
+        return;
+      } catch (_) {
+        // El servidor no contesta: se encola como si no hubiera red.
+      }
     }
+
+    await _forget(entity, id);
+    await _enqueue(entity, 'DELETE', const {}, serverId: id);
+  }
+
+  /// Quita un registro que se borra: de lo guardado y de las ediciones que
+  /// esperaban en la cola. Mandar esa edición antes del borrado sólo podría
+  /// acabar en un conflicto sobre algo que ya no se quiere.
+  Future<void> _forget(EntityMeta entity, String id) async {
+    await _removeCache(entity, id);
+    await (database.delete(database.pendingOperations)
+          ..where((row) =>
+              row.backend.equals(backend) &
+              row.entity.equals(entity.name) &
+              row.serverId.equals(id) &
+              row.op.equals('UPDATE') &
+              row.status.isIn(['PENDING', 'FAILED'])))
+        .go();
   }
 
   // ---------------------------------------------------------- sincronización
@@ -192,6 +271,15 @@ class OfflineRepository {
   /// Si una falla por falta de red se para ahí: seguir sólo serviría para
   /// acumular fallos y desordenar lo que queda.
   Future<SyncOutcome> sync() async {
+    if (!_isOnline()) {
+      return const SyncOutcome(
+        sent: 0,
+        conflicts: 0,
+        rejected: 0,
+        stoppedOffline: true,
+      );
+    }
+
     final query = database.select(database.pendingOperations)
       ..where((row) =>
           row.backend.equals(backend) & row.status.isIn(['PENDING', 'FAILED']))
@@ -201,6 +289,7 @@ class OfflineRepository {
     var sent = 0;
     var conflicts = 0;
     var rejected = 0;
+    var stoppedOffline = false;
 
     for (final operation in operations) {
       final entity = meta.byName(operation.entity);
@@ -242,11 +331,17 @@ class OfflineRepository {
             lastError: const Value('Sin conexión.'),
           ),
         );
+        stoppedOffline = true;
         break;
       }
     }
 
-    return SyncOutcome(sent: sent, conflicts: conflicts, rejected: rejected);
+    return SyncOutcome(
+      sent: sent,
+      conflicts: conflicts,
+      rejected: rejected,
+      stoppedOffline: stoppedOffline,
+    );
   }
 
   Future<void> _send(PendingOperation operation, EntityMeta entity) async {
@@ -485,6 +580,51 @@ class OfflineRepository {
     );
   }
 
+  /// La edición de un registro que espera en la cola, si la hay.
+  Future<PendingOperation?> _pendingUpdate(EntityMeta entity, String id) {
+    final query = database.select(database.pendingOperations)
+      ..where((row) =>
+          row.backend.equals(backend) &
+          row.entity.equals(entity.name) &
+          row.serverId.equals(id) &
+          row.op.equals('UPDATE') &
+          row.status.isIn(['PENDING', 'FAILED']))
+      ..limit(1);
+
+    return query.getSingleOrNull();
+  }
+
+  Future<bool> _hasPendingUpdate(EntityMeta entity, String id) async =>
+      await _pendingUpdate(entity, id) != null;
+
+  /// Editar dos veces sin red el mismo registro deja una sola edición en la
+  /// cola, con lo último que se escribió.
+  ///
+  /// Si se encolaran las dos, las dos llevarían la versión que se leyó antes
+  /// de la primera: la primera subiría bien, subiría la versión, y la segunda
+  /// volvería con un 409 como si otra persona lo hubiera tocado.
+  Future<void> _enqueueUpdate(
+    EntityMeta entity,
+    String id,
+    Map<String, dynamic> values,
+  ) async {
+    final existing = await _pendingUpdate(entity, id);
+
+    if (existing == null) {
+      await _enqueue(entity, 'UPDATE', values, serverId: id);
+      return;
+    }
+    await (database.update(database.pendingOperations)
+          ..where((row) => row.id.equals(existing.id)))
+        .write(
+      PendingOperationsCompanion(
+        payloadJson: Value(jsonEncode(values)),
+        status: const Value('PENDING'),
+        lastError: const Value(null),
+      ),
+    );
+  }
+
   Future<void> _dropPendingFor(EntityMeta entity, String localId) async {
     await (database.delete(database.pendingOperations)
           ..where((row) =>
@@ -550,20 +690,30 @@ class OfflineRepository {
                 row.conflicted.equals(false)))
           .go();
 
+      final now = DateTime.now();
+      final fresh = <CachedRecordsCompanion>[];
+
       for (final row in rows) {
         final id = row[entity.idField.name]?.toString();
         if (id == null || protected.contains(id)) continue;
 
-        await database.into(database.cachedRecords).insertOnConflictUpdate(
-              CachedRecordsCompanion.insert(
-                backend: backend,
-                entity: entity.name,
-                recordId: id,
-                payloadJson: jsonEncode(row),
-                updatedAt: DateTime.now(),
-              ),
-            );
+        fresh.add(
+          CachedRecordsCompanion.insert(
+            backend: backend,
+            entity: entity.name,
+            recordId: id,
+            payloadJson: jsonEncode(row),
+            updatedAt: now,
+          ),
+        );
       }
+
+      // En un solo lote: la base vive en otro isolate, y una inserción por
+      // registro era un viaje de ida y vuelta por cada fila de la lista.
+      await database.batch(
+        (batch) =>
+            batch.insertAllOnConflictUpdate(database.cachedRecords, fresh),
+      );
     });
   }
 
@@ -598,24 +748,24 @@ class OfflineRepository {
         .go();
   }
 
-  Future<List<LocalRecord>> _readCache(EntityMeta entity) async {
-    final query = database.select(database.cachedRecords)
-      ..where((row) =>
-          row.backend.equals(backend) & row.entity.equals(entity.name))
-      ..orderBy([(row) => OrderingTerm.asc(row.recordId)]);
+  Future<List<LocalRecord>> _readCache(EntityMeta entity) async =>
+      (await _cacheQuery(entity).get()).map(_fromRow).toList();
 
-    return (await query.get())
-        .map(
-          (row) => LocalRecord(
-            id: row.recordId,
-            values: _decode(row.payloadJson),
-            dirty: row.dirty,
-            conflicted: row.conflicted,
-            updatedAt: row.updatedAt,
-          ),
-        )
-        .toList();
-  }
+  SimpleSelectStatement<$CachedRecordsTable, CachedRecord> _cacheQuery(
+    EntityMeta entity,
+  ) =>
+      database.select(database.cachedRecords)
+        ..where((row) =>
+            row.backend.equals(backend) & row.entity.equals(entity.name))
+        ..orderBy([(row) => OrderingTerm.asc(row.recordId)]);
+
+  LocalRecord _fromRow(CachedRecord row) => LocalRecord(
+        id: row.recordId,
+        values: _decode(row.payloadJson),
+        dirty: row.dirty,
+        conflicted: row.conflicted,
+        updatedAt: row.updatedAt,
+      );
 
   LocalRecord _toRecord(
     EntityMeta entity,
@@ -678,11 +828,15 @@ class SyncOutcome {
     required this.sent,
     required this.conflicts,
     required this.rejected,
+    this.stoppedOffline = false,
   });
 
   final int sent;
   final int conflicts;
   final int rejected;
+
+  /// Se paró porque no había red: lo que quedaba sigue en la cola.
+  final bool stoppedOffline;
 
   bool get quiet => sent == 0 && conflicts == 0 && rejected == 0;
 }

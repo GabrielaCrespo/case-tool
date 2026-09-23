@@ -331,4 +331,126 @@ void main() {
     expect(outcome.sent, 0);
     expect(await repository.pendingCount(), 2);
   });
+
+  group('cuando el teléfono sabe que no hay red', () {
+    // El repositorio de la aplicación pregunta al sistema si hay red. Aquí se
+    // le contesta con el interruptor del backend falso.
+    late OfflineRepository offline;
+    var hasNetwork = true;
+
+    setUp(() {
+      hasNetwork = true;
+      offline = OfflineRepository(
+        database: database,
+        client: backend,
+        meta: meta,
+        isOnline: () => hasNetwork,
+      );
+    });
+
+    test('un alta no intenta hablar con el servidor', () async {
+      // El servidor contestaría, pero el sistema dice que no hay red: no se le
+      // pregunta. Es lo que hace que dar de alta en modo avión sea inmediato
+      // en vez de esperar a que venza el plazo de la conexión.
+      hasNetwork = false;
+
+      final saved = await offline.create(cliente, {'nombre': 'Ana'});
+
+      expect(saved.isLocalOnly, isTrue);
+      expect(backend.calls, isEmpty);
+      expect(await offline.pendingCount(), 1);
+    });
+
+    test('sincronizar sin red ni lo intenta', () async {
+      hasNetwork = false;
+      await offline.create(cliente, {'nombre': 'Ana'});
+
+      final outcome = await offline.sync();
+
+      expect(outcome.stoppedOffline, isTrue);
+      expect(backend.calls, isEmpty);
+    });
+
+    test('dos ediciones sin red del mismo registro no dan un conflicto falso',
+        () async {
+      final rosa = await offline.create(cliente, {'nombre': 'Rosa'});
+      backend.calls.clear();
+
+      hasNetwork = false;
+      await offline.update(cliente, rosa.id, {'nombre': 'Rosa 1', 'version': 0});
+      await offline.update(cliente, rosa.id, {'nombre': 'Rosa 2', 'version': 0});
+
+      // Una sola edición en la cola, con lo último que se escribió.
+      expect(await offline.pendingCount(), 1);
+
+      hasNetwork = true;
+      final outcome = await offline.sync();
+
+      expect(outcome.conflicts, 0);
+      expect(backend.calls, ['UPDATE CLIENTE 1']);
+      expect(backend.rows['CLIENTE']!.single['nombre'], 'Rosa 2');
+    });
+
+    test('con red, una edición no adelanta a la que espera en la cola',
+        () async {
+      final rosa = await offline.create(cliente, {'nombre': 'Rosa'});
+      backend.calls.clear();
+
+      hasNetwork = false;
+      await offline.update(cliente, rosa.id, {'nombre': 'Sin red', 'version': 0});
+
+      // Vuelve la red, pero la cola aún no ha subido cuando se edita otra vez.
+      hasNetwork = true;
+      await offline.update(cliente, rosa.id, {'nombre': 'Con red', 'version': 0});
+
+      expect(backend.calls, isEmpty);
+      final outcome = await offline.sync();
+
+      expect(outcome.conflicts, 0);
+      expect(backend.rows['CLIENTE']!.single['nombre'], 'Con red');
+    });
+
+    test('borrar un registro editado sin red no manda la edición', () async {
+      final rosa = await offline.create(cliente, {'nombre': 'Rosa'});
+      backend.calls.clear();
+
+      hasNetwork = false;
+      await offline.update(cliente, rosa.id, {'nombre': 'Rosa 1', 'version': 0});
+      await offline.delete(cliente, rosa.id);
+
+      expect(await offline.pendingCount(), 1);
+
+      hasNetwork = true;
+      await offline.sync();
+
+      expect(backend.calls, ['DELETE CLIENTE 1']);
+      expect(backend.rows['CLIENTE'], isEmpty);
+    });
+
+    test('al sincronizar se traen todas las entidades, no sólo la abierta',
+        () async {
+      await backend.create(cliente, {'nombre': 'Juan'});
+      await backend.create(notaventa, {'monto': 10});
+
+      expect(await offline.refreshAll(), isTrue);
+
+      // Sin red, las dos están, aunque nunca se abrió ninguna lista.
+      hasNetwork = false;
+      expect((await offline.list(cliente)).records, hasLength(1));
+      expect((await offline.list(notaventa)).records, hasLength(1));
+    });
+
+    test('la lista se entera de un alta en cuanto se guarda', () async {
+      hasNetwork = false;
+      final seen = <int>[];
+      final subscription =
+          offline.watch(cliente).listen((records) => seen.add(records.length));
+
+      await offline.create(cliente, {'nombre': 'Ana'});
+      await pumpEventQueue();
+
+      expect(seen.last, 1);
+      await subscription.cancel();
+    });
+  });
 }

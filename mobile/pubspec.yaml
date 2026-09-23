@@ -33,9 +33,12 @@ dependencies:
   connectivity_plus: ^6.1.0
 
   # ------------------------------------------------------- voz e IA local
-  # Reconocimiento de voz del propio dispositivo. Se le pide expresamente que
-  # trabaje sin conexión: es lo que permite dictar en modo avión.
-  speech_to_text: ^7.0.0
+  # Reconocimiento de voz con un modelo de español que viaja dentro del APK
+  # (assets/voz). No depende del reconocedor de Android, que sin el paquete de
+  # español de Google descargado no funciona en modo avión.
+  sherpa_onnx: ^1.13.8
+  # El micrófono, en crudo: las muestras van al reconocedor de arriba.
+  record: ^7.1.1
   # Modelo de lenguaje pequeño corriendo en el teléfono. El modelo NO va dentro
   # del APK: se descarga la primera vez que se usa el asistente.
   flutter_gemma: ^0.9.0
@@ -50,3 +53,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # El modelo de dictado (Moonshine base en español, cuantizado) y el detector
+  # de voz (Silero). Unos 66 MB en total; van en el APK para que dictar
+  # funcione sin red desde la primera vez, sin descargar nada.
+  assets:
+    - assets/voz/

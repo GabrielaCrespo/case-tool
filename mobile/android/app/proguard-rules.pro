@@ -23,6 +23,21 @@
 -keep class com.google.mediapipe.** { *; }
 -keep class com.google.protobuf.** { *; }
 
+# ------------------------------------------------------------- mobile_scanner
+# El escáner de códigos QR va sobre CameraX y ML Kit. ML Kit resuelve por
+# reflexión qué detector cargar, así que si R8 le cambia los nombres, la cámara
+# abre en negro y la librería sólo dice «genericError». Se conservan enteros.
+-keep class com.google.mlkit.** { *; }
+-keep class com.google.android.gms.internal.mlkit_** { *; }
+-keep class androidx.camera.** { *; }
+-keep interface androidx.camera.** { *; }
+
+# ML Kit puede traerse el modelo de códigos desde Google Play en vez de
+# empaquetarlo. Si en este teléfono no está esa variante, estas clases no
+# existen, y la librería ya lo comprueba antes de usarlas.
+-dontwarn com.google.mlkit.**
+-dontwarn com.google.android.gms.internal.mlkit_**
+
 # --------------------------------------------------------------------- OkHttp
 # OkHttp sabe usar tres proveedores de TLS alternativos si alguien los añade al
 # proyecto. No los añadimos: se usa el de Android. OkHttp ya comprueba que
