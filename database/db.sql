@@ -37,6 +37,21 @@ CREATE TYPE xmi_direction AS ENUM ('IMPORT', 'EXPORT');
 CREATE TYPE diagram_entity_type AS ENUM
   ('CLASS', 'ATTRIBUTE', 'METHOD', 'RELATIONSHIP', 'DIAGRAM');
 
+-- Segundo parcial (CU11–CU15): la IA como integrante del equipo.
+
+-- CU11 — De qué variable de entorno sale la llave del modelo del chat:
+-- GEMINI_API_KEY para GEMINI y CHAT_LLM_API_KEY, opcional, para cualquier otro
+-- servidor compatible con la API de OpenAI (Ollama, LM Studio...).
+CREATE TYPE ai_provider AS ENUM ('GEMINI', 'OPENAI_COMPATIBLE');
+
+-- CU15 — Hasta dónde llega la IA en un proyecto: sólo responder, proponer
+-- cambios que una persona aplica, o aplicarlos ella misma.
+CREATE TYPE ai_mode AS ENUM ('ANSWER', 'PROPOSE', 'EXECUTE');
+
+CREATE TYPE chat_action_status AS ENUM ('NONE', 'PROPOSED', 'APPLIED', 'REJECTED', 'FAILED');
+
+CREATE TYPE memory_kind AS ENUM ('DECISION', 'REQUIREMENT', 'SUMMARY');
+
 -- ============================================================================
 -- FUNCIÓN GENÉRICA PARA updated_at
 -- ============================================================================
@@ -59,6 +74,9 @@ CREATE TABLE users (
     email           VARCHAR(150) NOT NULL UNIQUE,
     password_hash   VARCHAR(255) NOT NULL,
     avatar_url      VARCHAR(500),
+    -- CU11 — Quién configura el servicio de IA. Se asigna a mano:
+    --   UPDATE users SET is_admin = TRUE WHERE email = '...';
+    is_admin        BOOLEAN NOT NULL DEFAULT FALSE,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -76,6 +94,7 @@ CREATE TABLE projects (
     name            VARCHAR(150) NOT NULL,
     description     TEXT,
     owner_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ai_mode         ai_mode NOT NULL DEFAULT 'PROPOSE',     -- CU15
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -373,3 +392,68 @@ CREATE TABLE diagram_change_log (
 
 CREATE INDEX idx_diagram_change_log_diagram ON diagram_change_log(diagram_id);
 CREATE INDEX idx_diagram_change_log_created_at ON diagram_change_log(created_at);
+
+-- ============================================================================
+-- 10. LA IA COMO INTEGRANTE DEL EQUIPO (segundo parcial, CU11–CU15)
+--     updated_at se escribe desde los servicios, como en backend_deployments,
+--     y no con un disparador: así una base preparada sólo con
+--     `prisma db update` se comporta igual que una creada con este archivo.
+-- ============================================================================
+
+-- CU11 — Configuración del modelo del chat del equipo. Una sola fila para
+-- toda la plataforma; mientras no exista, el backend usa sus valores por
+-- defecto. La llave no se guarda nunca aquí: sale de la variable de entorno
+-- del proveedor. CU04, CU05 y el dictado no la usan: siguen con Groq.
+CREATE TABLE ai_settings (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    provider        ai_provider NOT NULL DEFAULT 'GEMINI',
+    base_url        VARCHAR(500) NOT NULL,
+    model           VARCHAR(150) NOT NULL,
+    enabled         BOOLEAN NOT NULL DEFAULT TRUE,
+    context_budget  INTEGER NOT NULL DEFAULT 24000,  -- tokens aproximados de contexto
+    max_tokens      INTEGER NOT NULL DEFAULT 8192,   -- tope de la respuesta
+    updated_by      UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- CU14 — Lo que la IA recuerda de un proyecto además de su descripción
+-- (projects.description) y sus diagramas, que se leen de sus propias tablas.
+CREATE TABLE project_memory_entries (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id      UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    kind            memory_kind NOT NULL,
+    title           VARCHAR(200) NOT NULL,
+    content         TEXT NOT NULL,
+    created_by      UUID NOT NULL REFERENCES users(id),
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_project_memory_entries_project ON project_memory_entries(project_id);
+
+-- CU12/CU13/CU15 — El chat del equipo con la IA, uno por proyecto.
+CREATE TABLE chat_messages (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id          UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    -- Desde qué diagrama se preguntó: es el que la IA mira en detalle.
+    diagram_id          UUID REFERENCES diagrams(id) ON DELETE SET NULL,
+    -- NULL es la IA.
+    author_id           UUID REFERENCES users(id),
+    -- En la respuesta de la IA, la pregunta a la que contesta.
+    reply_to            UUID REFERENCES chat_messages(id) ON DELETE SET NULL,
+    content             TEXT NOT NULL,
+    -- CU15 — Cambios que la IA propone para el diagrama y qué pasó con ellos.
+    proposed_actions    JSONB,
+    action_status       chat_action_status NOT NULL DEFAULT 'NONE',
+    action_result       TEXT,
+    resolved_by         UUID REFERENCES users(id),
+    resolved_at         TIMESTAMPTZ,
+    model               VARCHAR(150),        -- qué modelo respondió
+    -- La IA no pudo responder: content se lo explica a la sala y esto guarda
+    -- el motivo técnico.
+    error_message       TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_chat_messages_project ON chat_messages(project_id, created_at);

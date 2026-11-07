@@ -1,10 +1,15 @@
 import { api } from './client'
 import type {
   AiResult,
+  AiSettings,
+  AiSettingsInput,
+  AiSettingsTest,
+  AiStatus,
   AssociationClassInput,
   AssociationClassResult,
   AttributeInput,
   AuthResponse,
+  ChatMessage,
   ClassInput,
   CodegenJob,
   Deployment,
@@ -14,11 +19,14 @@ import type {
   ExchangeDocument,
   FullDiagram,
   ImageImportResult,
+  MemoryEntry,
+  MemoryEntryInput,
   MethodInput,
   ParameterInput,
   Project,
   ProjectInput,
   ProjectMember,
+  ProjectMemory,
   RelationshipInput,
   UmlAttribute,
   UmlClass,
@@ -188,6 +196,48 @@ export const aiApi = {
 
     return api.upload<ImageImportResult>('/ai/image-to-uml', form)
   },
+}
+
+/**
+ * CU12 y CU13 — El chat del equipo con la IA, uno por proyecto.
+ *
+ * Preguntar devuelve la pregunta ya guardada; la respuesta de la IA llega
+ * después por la sala del proyecto (evento chat:message), como cualquier otro
+ * mensaje del chat.
+ */
+export const chatApi = {
+  list: (projectId: string) => api.get<ChatMessage[]>(`/projects/${projectId}/chat`),
+  ask: (projectId: string, body: { content: string; diagram_id: string | null }) =>
+    api.post<ChatMessage>(`/projects/${projectId}/chat`, body),
+  /** CU15 — Aplicar o descartar lo que propuso la IA; vuelve el mensaje ya resuelto. */
+  apply: (messageId: string) => api.post<ChatMessage>(`/chat/${messageId}/apply`),
+  reject: (messageId: string) => api.post<ChatMessage>(`/chat/${messageId}/reject`),
+}
+
+/**
+ * CU14 — La memoria del proyecto: lo que la IA del chat tiene en cuenta además
+ * de los diagramas. La lee el equipo; la cambia el propietario.
+ */
+export const memoryApi = {
+  get: (projectId: string) => api.get<ProjectMemory>(`/projects/${projectId}/memory`),
+  create: (projectId: string, body: MemoryEntryInput) =>
+    api.post<MemoryEntry>(`/projects/${projectId}/memory`, body),
+  update: (id: string, body: MemoryEntryInput) => api.patch<MemoryEntry>(`/memory/${id}`, body),
+  remove: (id: string) => api.delete(`/memory/${id}`),
+  /** La IA resume lo nuevo del chat y lo guarda como una entrada más. */
+  summarize: (projectId: string) => api.post<MemoryEntry>(`/projects/${projectId}/memory/summary`),
+}
+
+/**
+ * CU11 — Configurar Servicio de IA. `status` lo usa cualquiera; el resto, sólo
+ * un administrador. La prueba de conexión no guarda nada: sirve para probar
+ * unos valores antes de guardarlos.
+ */
+export const assistantApi = {
+  status: () => api.get<AiStatus>('/ai/status'),
+  settings: () => api.get<AiSettings>('/ai/settings'),
+  updateSettings: (body: AiSettingsInput) => api.patch<AiSettings>('/ai/settings', body),
+  testSettings: (body: AiSettingsInput) => api.post<AiSettingsTest>('/ai/settings/test', body),
 }
 
 /** CU02 — Relaciones entre clases y sus multiplicidades. */

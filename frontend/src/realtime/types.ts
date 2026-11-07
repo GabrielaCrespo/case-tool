@@ -65,7 +65,18 @@ export const COLLABORATION_EVENTS = {
   lockRelease: 'lock:release',
   lockChanged: 'lock:changed',
   changed: 'diagram:changed',
+  // CU13 — El chat del equipo, en la sala del proyecto.
+  chatMessage: 'chat:message',
+  chatUpdated: 'chat:updated',
+  aiStatus: 'ai:status',
 } as const
+
+/** CU13 — A qué pregunta está respondiendo la IA ahora. */
+export interface AiStatusEvent {
+  project_id: string
+  question_id: string
+  state: 'thinking' | 'idle'
+}
 
 export interface JoinAck {
   ok: boolean

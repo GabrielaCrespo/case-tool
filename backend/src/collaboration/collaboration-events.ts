@@ -62,6 +62,22 @@ export interface DiagramChange {
   actor_id: string;
 }
 
+/**
+ * CU13 — Lo que se difunde a la sala de un proyecto (`project:<id>`).
+ *
+ * Igual que con los diagramas, lo que viaja ya está guardado: el mensaje es el
+ * mismo objeto que devuelve GET /projects/:id/chat. `ai:status` es lo único que
+ * no se guarda, porque sólo dice qué está haciendo la IA en este momento.
+ */
+export type ChatEvent =
+  | { kind: 'chat:message'; project_id: string; payload: unknown }
+  | { kind: 'chat:updated'; project_id: string; payload: unknown }
+  | {
+      kind: 'ai:status';
+      project_id: string;
+      payload: { project_id: string; question_id: string; state: 'thinking' | 'idle' };
+    };
+
 /** Nombres de los eventos de socket, compartidos con el frontend. */
 export const COLLABORATION_EVENTS = {
   join: 'diagram:join',
@@ -72,4 +88,8 @@ export const COLLABORATION_EVENTS = {
   lockRelease: 'lock:release',
   lockChanged: 'lock:changed',
   changed: 'diagram:changed',
+  // CU13 — El chat del equipo, en la sala del proyecto.
+  chatMessage: 'chat:message',
+  chatUpdated: 'chat:updated',
+  aiStatus: 'ai:status',
 } as const;

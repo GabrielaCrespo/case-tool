@@ -8,7 +8,9 @@ import { ErrorState, LoadingState } from '../../components/ui/States'
 import { useToast } from '../../components/ui/toast-context'
 import { cn } from '../../lib/cn'
 import { useCollaboration } from '../../realtime/useCollaboration'
+import { useChatStore } from '../../store/chat'
 import { setDiagramErrorReporter, useDiagramStore } from '../../store/diagram'
+import { TeamChatPanel } from '../assistant/TeamChatPanel'
 import { DiagramCanvas } from './DiagramCanvas'
 import { EditorTopBar } from './EditorTopBar'
 import { PropertiesPanel } from './panel/PropertiesPanel'
@@ -68,6 +70,17 @@ export function EditorPage() {
   // CU03 — Entra en la sala del diagrama: presencia, bloqueos y cambios de los
   // demás. El guardado sigue haciéndose por la API REST.
   useCollaboration(diagramId)
+
+  // CU13 — El chat es del proyecto: se carga con el primer diagrama que se
+  // abre y sigue al pasar a otro del mismo proyecto. Al salir del editor se
+  // olvida; los mensajes siguen guardados en el servidor.
+  const projectId = diagram?.project_id ?? null
+  const chatOpen = useChatStore((state) => state.open)
+  const setChatOpen = useChatStore((state) => state.setOpen)
+  useEffect(() => {
+    if (projectId) void useChatStore.getState().load(projectId)
+  }, [projectId])
+  useEffect(() => () => useChatStore.getState().reset(), [])
 
   const selectedClass = useMemo(
     () =>
@@ -194,6 +207,10 @@ export function EditorPage() {
               <PropertiesPanel onRequestDelete={requestDelete} />
             </div>
           </div>
+
+          {/* CU12/CU13 — El chat se abre por encima del panel de propiedades,
+              sin quitarle sitio al lienzo; se cierra para volver a ellas. */}
+          {chatOpen && <TeamChatPanel onClose={() => setChatOpen(false)} />}
         </div>
 
         <StatusBar tool={tool} />

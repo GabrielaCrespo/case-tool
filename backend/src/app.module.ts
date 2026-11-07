@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AiModule } from './ai/ai.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { AssistantModule } from './assistant/assistant.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CodegenModule } from './codegen/codegen.module.js';
 import { CollaborationModule } from './collaboration/collaboration.module.js';
@@ -22,6 +23,7 @@ import { XmiModule } from './xmi/xmi.module.js';
     XmiModule,
     CodegenModule,
     DeploymentsModule,
+    AssistantModule,
   ],
   controllers: [AppController],
   providers: [AppService],

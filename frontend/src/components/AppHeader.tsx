@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { initials } from '../lib/format'
 import { useAuthStore } from '../store/auth'
-import { LogoutIcon } from './icons'
+import { LogoutIcon, SparkIcon } from './icons'
 import { Logo } from './Logo'
 import { IconButton } from './ui/Button'
 
@@ -17,6 +17,16 @@ export function AppHeader() {
       </Link>
 
       <div className="flex items-center gap-3">
+        {/* CU11 — Sólo quien puede configurar el servicio de IA ve el acceso. */}
+        {user?.is_admin && (
+          <Link
+            to="/admin/ia"
+            className="flex items-center gap-1.5 rounded-[3px] border border-ink-200 px-2 py-1.5 text-[12.5px] font-medium text-ink-700 transition-colors hover:bg-ink-50"
+          >
+            <SparkIcon className="size-4" />
+            <span className="hidden sm:inline">Servicio de IA</span>
+          </Link>
+        )}
         {user && (
           <div className="flex items-center gap-2.5">
             <span

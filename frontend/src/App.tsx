@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { SESSION_EXPIRED_EVENT } from './api/session'
 import { ToastProvider } from './components/ui/ToastProvider'
 import { LoadingState } from './components/ui/States'
+import { AiSettingsPage } from './features/admin/AiSettingsPage'
 import { EditorPage } from './features/editor/EditorPage'
 import { LoginPage } from './features/auth/LoginPage'
 import { RegisterPage } from './features/auth/RegisterPage'
@@ -65,6 +66,16 @@ export default function App() {
             element={
               <RequireAuth>
                 <EditorPage />
+              </RequireAuth>
+            }
+          />
+          {/* CU11 — Sólo para administradores: el servidor rechaza al resto, y
+              la pantalla lo dice en lugar de esconder la ruta. */}
+          <Route
+            path="/admin/ia"
+            element={
+              <RequireAuth>
+                <AiSettingsPage />
               </RequireAuth>
             }
           />

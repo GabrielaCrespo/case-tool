@@ -14,6 +14,13 @@ import { db } from '../prisma/db.js';
 /** projects.name está declarado como VARCHAR(150) en PostgreSQL. */
 const NAME_MAX_LENGTH = 150;
 
+/**
+ * CU15 — Hasta dónde llega la IA del chat en el proyecto: sólo responder,
+ * proponer cambios que una persona aplica, o aplicarlos ella misma.
+ */
+export type AiMode = 'ANSWER' | 'PROPOSE' | 'EXECUTE';
+const AI_MODES: readonly AiMode[] = ['ANSWER', 'PROPOSE', 'EXECUTE'];
+
 /** Fila de projects tal como la devuelve el ORM (sin relaciones). */
 type ProjectRow = Scalars<Models.public_Projects>;
 
@@ -23,6 +30,7 @@ export interface ProjectResponse {
   name: string;
   description: string | null;
   owner_id: string;
+  ai_mode: AiMode;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +47,7 @@ export interface ProjectMemberResponse {
 export interface ProjectInput {
   name?: unknown;
   description?: unknown;
+  ai_mode?: unknown;
 }
 
 @Injectable()
@@ -103,6 +112,7 @@ export class ProjectsService {
     const changes: {
       name?: Varchar<typeof NAME_MAX_LENGTH>;
       description?: string | null;
+      aiMode?: AiMode;
     } = {};
     if (data?.name !== undefined) {
       changes.name = this.validateName(data.name);
@@ -110,10 +120,18 @@ export class ProjectsService {
     if (data?.description !== undefined) {
       changes.description = this.validateDescription(data.description);
     }
+    // CU15 — Qué puede hacer la IA del chat lo decide, como el resto del
+    // proyecto, su propietario.
+    if (data?.ai_mode !== undefined) {
+      if (typeof data.ai_mode !== 'string' || !AI_MODES.includes(data.ai_mode as AiMode)) {
+        throw new BadRequestException(`ai_mode debe ser uno de: ${AI_MODES.join(', ')}.`);
+      }
+      changes.aiMode = data.ai_mode as AiMode;
+    }
 
     if (Object.keys(changes).length === 0) {
       throw new BadRequestException(
-        'Debe indicar al menos un campo a modificar: name o description.',
+        'Debe indicar al menos un campo a modificar: name, description o ai_mode.',
       );
     }
 
@@ -325,6 +343,7 @@ export class ProjectsService {
       name: project.name,
       description: project.description,
       owner_id: project.ownerId,
+      ai_mode: project.aiMode,
       created_at: new Date(project.createdAt).toISOString(),
       updated_at: new Date(project.updatedAt).toISOString(),
     };

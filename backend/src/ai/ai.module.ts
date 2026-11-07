@@ -27,5 +27,8 @@ import { GroqService } from './groq.service.js';
   imports: [AuthModule, DiagramsModule],
   controllers: [AiController],
   providers: [AiService, AiExecutorService, GroqService],
+  // CU15 — El chat del equipo aplica sus propuestas con este mismo ejecutor:
+  // la misma validación y los mismos servicios que una instrucción de CU04.
+  exports: [AiExecutorService],
 })
 export class AiModule {}

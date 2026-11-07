@@ -1,4 +1,225 @@
-# Plan para terminar el proyecto
+# Plan del segundo parcial — la IA como miembro del equipo (CU11–CU15)
+
+> **Estado (2026-11-07):** las siete fases implementadas y verificadas en local, también contra
+> Gemini de verdad, con sockets reales y en Chrome con dos sesiones a la vez. Backend: 150 pruebas
+> en verde (las 47 de antes y 103 nuevas), e2e en verde; frontend: `tsc` y ESLint sin avisos;
+> imágenes de producción construidas. **Falta sólo desplegar en AWS** (fase 6), que necesita que
+> los cambios estén en GitHub y encender la instancia; los pasos están en `deploy/README.md`,
+> «Segundo parcial». El plan del primer parcial sigue más abajo, como registro histórico.
+>
+> Aprendido en la Fase 5: **el plan gratuito de Gemini da 20 peticiones al día para
+> `gemini-3.6-flash`** y se agotó con las pruebas. La cuota es por modelo; `gemini-3.5-flash-lite`
+> tenía la suya. El chat ahora distingue la cuota diaria de la de un minuto y dice cuándo vuelve.
+> Las pruebas contra el servidor se hacen en una base aparte (`case_tool_test`), no en la de uso.
+>
+> Arreglado en la Fase 6: el socket del editor no conectaba en producción con la API bajo `/api`
+> (iba a `/socket.io` en la raíz del dominio). `socket.ts` separa ahora el prefijo (`path`) del
+> espacio de nombres; verificado con un proxy que imita a Traefik y en local.
+>
+> Arreglado de paso (era anterior a este parcial): el panel de propiedades del editor tenía
+> `shrink-0` dentro de una columna flex, así que no hacía scroll y, con relaciones en el
+> diagrama, su final tapaba la barra de estado. Ahora es `min-h-0 flex-1`.
+>
+> Decidido en la Fase 4:
+> - El modo de la IA lo elige el propietario **desde el propio chat** (selector en la cabecera
+>   del panel); el resto del equipo lo ve con su explicación. El cambio no se difunde: los demás
+>   ven el modo nuevo al recargar, pero el servidor usa siempre el vigente al responder.
+> - El catálogo de acciones del chat **se recorta del prompt de CU04** (`interpretSystemPrompt`,
+>   desde «Acciones disponibles:»), sin copiarlo: lo leen el mismo parser y el mismo ejecutor.
+> - Antes de aplicar se miran los bloqueos de CU03 (`lockConflicts`): `apply` ejecuta paso a
+>   paso y chocar con un bloqueo a mitad dejaría la propuesta aplicada a medias. Con un bloqueo
+>   ajeno, 409 diciendo quién y la propuesta sigue pendiente; si ya no encaja con el diagrama,
+>   queda `FAILED` con el motivo. En EXECUTE, un bloqueo la deja como propuesta.
+> - En PROPOSE la IA presenta los cambios como propuesta («Propongo…»): sin esa línea decía
+>   «He creado…» antes de que nadie los aplicara.
+>
+> Aprendido en la Fase 2: Google responde a veces `503 «high demand»` aunque la llave y el modelo
+> estén bien. `ChatLlmClient` reintenta una vez los 500/502/503 tras 2,5 s y, si persiste, dice
+> que el modelo está saturado.
+
+El segundo parcial **extiende** el primero: la IA pasa a ser un integrante más dentro del editor
+colaborativo, con un chat compartido en tiempo real por proyecto, memoria persistente del
+proyecto y la posibilidad de proponer o ejecutar cambios sobre el diagrama según se configure.
+
+## Restricciones
+
+- Todo lo del primer parcial sigue funcionando: **47 pruebas del backend y 46 del móvil en
+  verde** al cerrar cada fase.
+- **No se modifican** `backend/src/ai/groq.service.ts`, `prompts.ts`, `uml-actions.ts`,
+  `ai-executor.service.ts`, ni nada de `mobile/` o `generator/`. Se usan, no se tocan.
+- **Fuera de alcance:** el modelo autoalojado (Ollama, llama.cpp, una EC2 aparte). El cliente del
+  chat queda preparado para que agregarlo sea sólo cambiar la configuración de CU11 —proveedor
+  `OPENAI_COMPATIBLE`, `base_url` del servidor y modelo—, sin tocar código.
+
+## Decisiones ya tomadas
+
+1. **`ChatLlmClient` propio en `backend/src/assistant/`**, compatible con OpenAI. Preset por
+   defecto `GEMINI`: `https://generativelanguage.googleapis.com/v1beta/openai`, llave en
+   `GEMINI_API_KEY`. `base_url` y modelo se editan desde CU11 porque Google retira modelos a
+   menudo. **CU04, CU05 y el dictado siguen con Groq** (`GroqService`, intacto).
+2. **Dos proveedores, y cada uno sabe de qué variable sale su llave**: `GEMINI` →
+   `GEMINI_API_KEY` (obligatoria); `OPENAI_COMPATIBLE` → `CHAT_LLM_API_KEY` (opcional: Ollama o
+   LM Studio no la piden). No se deja elegir el *nombre* de la variable desde la pantalla: un
+   nombre libre permitiría mandar `JWT_SECRET` o `DATABASE_URL` como llave a una URL cualquiera.
+3. **Las llaves sólo viven en variables de entorno.** La pantalla de CU11 sólo dice si están
+   configuradas. `/ai/settings/test` avisa si falta la variable antes de llamar a nada.
+4. **Administrador = `users.is_admin`**, asignado por SQL. No hay pantalla para otorgarlo.
+5. **`PATCH /ai/settings`, no `PUT`**: el CORS de `main.ts` sólo admite GET, POST, PATCH y DELETE,
+   y el resto de la API ya modifica con PATCH.
+6. **Sólo parámetros estándar en la petición**: `model`, `messages` y `max_tokens`. Nada de
+   `temperature` (Gemini 3 recomienda dejar la suya), `response_format` (Gemini no documenta
+   `json_object` y LM Studio lo rechaza) ni `reasoning_effort` (cada familia admite valores
+   distintos). El JSON se recupera del texto.
+7. **El `toJson` de `GroqService` es privado** y ese archivo no se toca, así que su lógica se
+   replica tal cual en `assistant/model-json.ts` (función pura, con prueba), más **un reintento
+   de reparación**: si el modelo devuelve JSON malformado, se le devuelve su respuesta pidiéndole
+   sólo el objeto, una vez.
+8. **Modelo por defecto `gemini-3.6-flash`**, el Flash marcado *Stable* en la documentación de
+   Google al 2026-11-07 (`gemini-2.5-flash` está obsoleto y se redirige desde el 2026-12-01).
+9. **`ai_settings` tiene una sola fila.** Si todavía no existe, se usan los valores por defecto
+   sin guardarlos; el primer `PATCH` la crea.
+10. **Chat por proyecto** (sala `project:<id>`); cada mensaje guarda desde qué diagrama se envió.
+11. **`projects.ai_mode`**: `ANSWER`, `PROPOSE` (por defecto) y `EXECUTE`. La IA responde
+    `{reply, actions}`; las acciones se muestran como tarjeta *Aplicar / Descartar* y al aplicar
+    se **vuelven a validar** con `plan/apply` contra el diagrama de ese momento. Si alguien tiene
+    tomado un elemento, falla y dice quién. El propietario cambia el modo con `PATCH /projects/:id`.
+12. **Contexto en orden estable**: instrucciones, memoria del proyecto, `projects.description`,
+    diagrama actual, una línea por cada otro diagrama, últimos 8 mensajes, pregunta.
+    `context_budget` y `max_tokens` se configuran en CU11.
+13. **Una pregunta a la vez por proyecto** (cola en memoria): el plan gratuito de Gemini admite
+    pocas peticiones por minuto.
+14. **Escrituras por REST, avisos por Socket.IO**, como en CU02/CU03: `chat:message`,
+    `chat:updated` y `ai:status`.
+
+## Esquema (Fase 1)
+
+Sólo agregados. Se aplica con el flujo del apéndice A y queda reflejado en `database/db.sql`.
+
+| Objeto | Qué es |
+|---|---|
+| `users.is_admin BOOLEAN NOT NULL DEFAULT FALSE` | Actor Administrador de CU11 |
+| `projects.ai_mode ai_mode NOT NULL DEFAULT 'PROPOSE'` | Qué puede hacer la IA en ese proyecto (CU15) |
+| `ai_provider` (`GEMINI`, `OPENAI_COMPATIBLE`) | Tipo enumerado |
+| `ai_mode` (`ANSWER`, `PROPOSE`, `EXECUTE`) | Tipo enumerado |
+| `memory_kind` (`DECISION`, `REQUIREMENT`, `SUMMARY`) | Tipo enumerado |
+| `chat_action_status` (`NONE`, `PROPOSED`, `APPLIED`, `REJECTED`, `FAILED`) | Tipo enumerado |
+| `ai_settings` | `provider`, `base_url`, `model`, `enabled`, `context_budget`, `max_tokens`, `updated_by`, fechas |
+| `project_memory_entries` | `project_id`, `kind`, `title`, `content`, `created_by`, fechas |
+| `chat_messages` | `project_id`, `diagram_id`, `author_id` (NULL = la IA), `reply_to`, `content`, `proposed_actions`, `action_status`, `action_result`, `resolved_by`, `resolved_at`, `model`, `error_message`, `created_at` |
+
+La descripción del proyecto ya existe (`projects.description`) y los diagramas se leen de su
+tabla: la memoria de CU14 no los duplica.
+
+## Archivos por caso de uso
+
+### CU11 — Configurar Servicio de IA (Administrador)
+
+| Capa | Archivo | Qué |
+|---|---|---|
+| BD | `contract.prisma`, `db.sql` | `ai_settings`, `users.is_admin`, `ai_provider` |
+| Backend | `assistant/chat-llm-client.ts` (+ `.spec.ts`) | **Nuevo.** Cliente OpenAI-compatible: errores en castellano, un reintento corto ante 429, reparación de JSON |
+| Backend | `assistant/model-json.ts` (+ `.spec.ts`) | **Nuevo.** Recuperar el JSON del texto del modelo |
+| Backend | `assistant/ai-settings.service.ts` (+ `.spec.ts`) | **Nuevo.** Leer, validar y guardar la configuración; comprobar el administrador; probar la conexión |
+| Backend | `assistant/ai-settings.controller.ts` | **Nuevo.** `GET`/`PATCH /ai/settings`, `POST /ai/settings/test`, `GET /ai/status` |
+| Backend | `assistant/assistant.module.ts`, `app.module.ts` | **Nuevo** módulo y su registro |
+| Backend | `auth/auth.service.ts` | `/auth/me` devuelve `is_admin` |
+| Backend | `.env.example` | `GEMINI_API_KEY`, `CHAT_LLM_API_KEY` |
+| Frontend (F6) | `features/admin/AiSettingsPage.tsx`, `App.tsx`, `components/AppHeader.tsx`, `api/endpoints.ts`, `api/types.ts` | Pantalla, ruta y enlace sólo para administradores |
+| Despliegue (F6) | `deploy/.env.example`, `deploy/docker-compose.yml` | Pasar `GEMINI_API_KEY` al servicio `api`; migrar la base de la instancia |
+
+### CU12 — Consultar al Asistente de IA
+
+| Capa | Archivo | Qué |
+|---|---|---|
+| BD | `chat_messages` | Pregunta y respuesta |
+| Backend | `assistant/assistant-context.ts` (+ `.spec.ts`) | **Nuevo.** Instrucciones y armado del contexto, puro y con presupuesto |
+| Backend | `assistant/project-queue.ts` (+ `.spec.ts`) | **Nuevo.** Una pregunta a la vez por proyecto, como mucho 5 esperando |
+| Backend | `assistant/assistant.service.ts` | **Nuevo.** Guarda la pregunta, encola, arma el contexto, llama al modelo, guarda la respuesta (o un mensaje de la IA que explica por qué no pudo) |
+| Backend | `assistant/assistant.controller.ts` | **Nuevo.** `GET`/`POST /projects/:id/chat` |
+| Reutiliza | `DiagramsService.findOneFull`, `validate`, `assertProjectAccess`; `diagramContext()` de `prompts.ts` (sólo lectura) | |
+
+### CU13 — Visualizar Conversaciones del Equipo
+
+| Capa | Archivo | Qué |
+|---|---|---|
+| Backend | `collaboration/chat-events.service.ts` | **Nuevo.** Canal interno como `DiagramEventsService`, registrado en `realtime-state.module.ts` |
+| Backend | `collaboration/collaboration-events.ts`, `collaboration.gateway.ts` | Sala `project:<id>` (se entra en el mismo `diagram:join`); eventos nuevos |
+| Frontend | `realtime/types.ts`, `realtime/useCollaboration.ts`, `store/chat.ts` | Recibir y guardar los mensajes (por identificador: la pregunta propia llega dos veces); recargar al reconectar |
+| Frontend | `features/assistant/TeamChatPanel.tsx`, `features/editor/EditorTopBar.tsx`, `EditorPage.tsx`, `api/endpoints.ts`, `api/types.ts`, `components/icons.tsx` | Panel lateral sobre las propiedades, botón «Chat» con contador de no leídos, «La IA está respondiendo…» / «En cola» |
+| Frontend (recortable) | `features/editor/Presence.tsx` | La IA como participante |
+
+### CU14 — Gestionar Memoria del Proyecto (Propietario)
+
+| Capa | Archivo | Qué |
+|---|---|---|
+| BD | `project_memory_entries` | Decisiones, requisitos y resúmenes |
+| Backend | `assistant/project-memory.service.ts`, `project-memory.controller.ts` | **Nuevos.** CRUD (sólo el propietario escribe) y `POST /projects/:id/memory/summary` |
+| Frontend | `features/projects/ProjectMemoryPanel.tsx`, `ProjectDetail.tsx` | Panel de memoria y descripción (el modo de la IA ya se elige en el chat, Fase 4) |
+
+### CU15 — Delegar Ejecución de Tareas a la IA
+
+| Capa | Archivo | Qué |
+|---|---|---|
+| BD | `projects.ai_mode`, columnas de acción de `chat_messages` | |
+| Backend | `ai/ai.module.ts` | Exportar `AiExecutorService` (el servicio no se toca) |
+| Backend | `assistant/proposal.ts` (+ `.spec.ts`) | **Nuevo.** Leer las acciones, guardar la propuesta y detectar bloqueos ajenos antes de aplicar |
+| Backend | `assistant/assistant-context.ts` | Instrucciones según el modo y catálogo de acciones de CU04 |
+| Backend | `assistant/assistant.service.ts`, `assistant.controller.ts` | `parseActions` + `plan` al recibir; `POST /chat/:messageId/apply` y `/reject` revalidan y aplican |
+| Backend | `projects/projects.service.ts` | `PATCH /projects/:id` acepta `ai_mode` (sólo el propietario) |
+| Frontend | `features/assistant/TeamChatPanel.tsx` (`ProposalCard`, `ModeBar`), `store/chat.ts`, `api/` | Tarjeta *Aplicar / Descartar* con el resultado y selector del modo para el propietario |
+
+## API y eventos nuevos
+
+| Método | Ruta | CU | Quién |
+|---|---|---|---|
+| GET | `/ai/settings` | CU11 | Administrador |
+| PATCH | `/ai/settings` | CU11 | Administrador |
+| POST | `/ai/settings/test` | CU11 | Administrador |
+| GET | `/ai/status` | CU11 | Cualquier usuario autenticado |
+| GET / POST | `/projects/:id/chat` | CU12, CU13 | Miembros del proyecto |
+| GET / POST | `/projects/:id/memory` | CU14 | Lee cualquier miembro; escribe el propietario |
+| PATCH / DELETE | `/memory/:id` | CU14 | Propietario |
+| POST | `/projects/:id/memory/summary` | CU14 | Propietario |
+| POST | `/chat/:messageId/apply` · `/reject` | CU15 | Miembros del proyecto |
+
+| Evento (servidor → sala `project:<id>`) | Cuándo |
+|---|---|
+| `chat:message` | Se guardó un mensaje, de una persona o de la IA |
+| `chat:updated` | Cambió el estado de una propuesta |
+| `ai:status` | La IA empieza o termina de responder, y a quién |
+
+## Fases
+
+| # | Trabajo | Criterio de aceptación |
+|---|---|---|
+| 1 | Esquema + `ChatLlmClient` + backend de CU11 | `prisma db update --dry-run` sólo agrega; `/ai/settings/test` avisa si falta la llave; pruebas en verde |
+| 2 | CU12 | La respuesta nombra clases reales del diagrama y respeta el orden del contexto |
+| 3 | CU13 | Dos navegadores con usuarios distintos ven la misma conversación al instante |
+| 4 | CU15 | Una propuesta aplicada aparece en el lienzo de ambos; una propuesta vieja o bloqueada falla con motivo |
+| 5 | CU14 | Una decisión guardada cambia la respuesta de la IA |
+| 6 | Pantalla de CU11 + despliegue en AWS con `GEMINI_API_KEY` | Cambiar el modelo desde la pantalla sin reiniciar |
+| 7 | Pruebas, README y DEMO | Todo en verde y documentación al día |
+
+**Recortes si falta tiempo, en este orden:** resumen automático de CU14 → la IA en la lista de
+presencia → listado de modelos en CU11 → modo `EXECUTE`.
+
+**Cómo se comprueba cada fase sin romper lo anterior:** `npx tsc --noEmit && npx vitest run` en
+`backend/` (las 47 de siempre más las nuevas), `npx tsc -b && npx eslint src --max-warnings=0` en
+`frontend/` cuando la fase lo toca, y `flutter test` en `mobile/` al cerrar la fase 7.
+
+## Correcciones pendientes del README (Fase 7)
+
+- Rol `VIEWER`: existe en el tipo enumerado, pero la invitación no permite elegirlo y ningún
+  servicio lo lee; **todos los invitados son editores**.
+- CU04/CU05: la IA del editor **aplica sin pedir confirmación** si todo pasa la validación.
+- Son **15 tablas** (18 después de la Fase 1), no 14.
+- Pruebas del móvil ejecutadas (46), historial de commits, cabecera «accesible» con la instancia
+  apagada, textos residuales de `AiAssistant.tsx`.
+- Documentar CU11–CU15, el actor Administrador y las tablas nuevas.
+
+---
+
+# Primer parcial — Plan para terminar el proyecto (histórico)
 
 > **Las seis fases están implementadas.** Este documento se conserva como lo que fue —el plan
 > con el que se trabajó y las decisiones que se cerraron antes de empezar—, no como la

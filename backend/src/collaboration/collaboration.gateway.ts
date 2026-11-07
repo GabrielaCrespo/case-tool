@@ -12,6 +12,7 @@ import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service.js';
 import { corsOrigins } from '../cors-origins.js';
 import { DiagramsService } from '../diagrams/diagrams.service.js';
+import { ChatEventsService } from './chat-events.service.js';
 import type { LockableType, Participant } from './collaboration-events.js';
 import { COLLABORATION_EVENTS } from './collaboration-events.js';
 import { DiagramEventsService } from './diagram-events.service.js';
@@ -23,6 +24,8 @@ interface SocketSession {
   fullName: string;
   email: string;
   diagramId: string | null;
+  /** CU13 — El proyecto del diagrama abierto, cuya sala de chat se recibe. */
+  projectId: string | null;
 }
 
 interface JwtPayload {
@@ -33,6 +36,15 @@ interface JwtPayload {
 /** La sala de socket.io que corresponde a un diagrama. */
 function roomOf(diagramId: string): string {
   return `diagram:${diagramId}`;
+}
+
+/**
+ * CU13 — La sala del chat del equipo. Es del proyecto y no del diagrama: quien
+ * pregunta desde «Ventas» y quien trabaja en «Inventario» son el mismo equipo
+ * y ven la misma conversación.
+ */
+function projectRoomOf(projectId: string): string {
+  return `project:${projectId}`;
 }
 
 /**
@@ -63,6 +75,7 @@ export class CollaborationGateway
     private readonly diagramsService: DiagramsService,
     private readonly diagramEvents: DiagramEventsService,
     private readonly locks: LockRegistryService,
+    private readonly chatEvents: ChatEventsService,
   ) {}
 
   afterInit(): void {
@@ -79,6 +92,11 @@ export class CollaborationGateway
     // Difunde a la sala cada cambio que los servicios de CU02 ya guardaron.
     this.diagramEvents.changes$.subscribe((change) => {
       this.server.to(roomOf(change.diagram_id)).emit(COLLABORATION_EVENTS.changed, change);
+    });
+
+    // CU13 — Y cada mensaje del chat del equipo, a la sala del proyecto.
+    this.chatEvents.events$.subscribe((event) => {
+      this.server.to(projectRoomOf(event.project_id)).emit(event.kind, event.payload);
     });
   }
 
@@ -103,6 +121,7 @@ export class CollaborationGateway
         fullName: user.full_name,
         email: user.email,
         diagramId: null,
+        projectId: null,
       });
       next();
     } catch {
@@ -156,8 +175,9 @@ export class CollaborationGateway
       return { ok: false, message: 'Petición de acceso a la sala incompleta.' };
     }
 
+    let projectId: string;
     try {
-      await this.diagramsService.assertDiagramAccess(session.userId, diagramId);
+      projectId = (await this.diagramsService.assertDiagramAccess(session.userId, diagramId)).projectId;
     } catch {
       return { ok: false, message: 'No tiene acceso a este diagrama.' };
     }
@@ -168,7 +188,11 @@ export class CollaborationGateway
     }
 
     session.diagramId = diagramId;
+    session.projectId = projectId;
     await client.join(roomOf(diagramId));
+    // CU13 — Con el diagrama llega el chat de su proyecto. Los permisos son
+    // los mismos: quien puede abrir el diagrama es del equipo.
+    await client.join(projectRoomOf(projectId));
     this.broadcastPresence(diagramId);
 
     this.logger.log(`${session.email} entró al diagrama ${diagramId}`);
@@ -260,7 +284,11 @@ export class CollaborationGateway
     }
 
     await client.leave(roomOf(diagramId));
+    if (session.projectId) {
+      await client.leave(projectRoomOf(session.projectId));
+    }
     session.diagramId = null;
+    session.projectId = null;
     this.broadcastPresence(diagramId);
   }
 

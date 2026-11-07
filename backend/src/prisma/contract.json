@@ -8,8 +8,16 @@
       "model": "AiCommandLogs",
       "namespace": "public"
     },
+    "ai_settings": {
+      "model": "AiSettings",
+      "namespace": "public"
+    },
     "backend_deployments": {
       "model": "BackendDeployments",
+      "namespace": "public"
+    },
+    "chat_messages": {
+      "model": "ChatMessages",
       "namespace": "public"
     },
     "code_generation_jobs": {
@@ -30,6 +38,10 @@
     },
     "project_members": {
       "model": "ProjectMembers",
+      "namespace": "public"
+    },
+    "project_memory_entries": {
+      "model": "ProjectMemoryEntries",
       "namespace": "public"
     },
     "projects": {
@@ -230,6 +242,143 @@
               },
               "namespaceId": "public",
               "table": "ai_command_logs"
+            }
+          },
+          "AiSettings": {
+            "fields": {
+              "baseUrl": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 500
+                  }
+                }
+              },
+              "contextBudget": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "enabled": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "maxTokens": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/int4@1",
+                  "kind": "scalar"
+                }
+              },
+              "model": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 150
+                  }
+                }
+              },
+              "provider": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "ai_provider"
+                  }
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "updatedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "user": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "updatedBy"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Users",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "baseUrl": {
+                  "column": "base_url"
+                },
+                "contextBudget": {
+                  "column": "context_budget"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "enabled": {
+                  "column": "enabled"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "maxTokens": {
+                  "column": "max_tokens"
+                },
+                "model": {
+                  "column": "model"
+                },
+                "provider": {
+                  "column": "provider"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                },
+                "updatedBy": {
+                  "column": "updated_by"
+                }
+              },
+              "namespaceId": "public",
+              "table": "ai_settings"
             }
           },
           "BackendDeployments": {
@@ -448,6 +597,259 @@
               },
               "namespaceId": "public",
               "table": "backend_deployments"
+            }
+          },
+          "ChatMessages": {
+            "fields": {
+              "actionResult": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "actionStatus": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "chat_action_status"
+                  }
+                }
+              },
+              "authorId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "content": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "diagramId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "errorMessage": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "model": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 150
+                  }
+                }
+              },
+              "projectId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "proposedActions": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/jsonb@1",
+                  "kind": "scalar"
+                }
+              },
+              "replyToId": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "resolvedAt": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "resolvedBy": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "author": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "authorId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Users",
+                  "namespace": "public"
+                }
+              },
+              "diagram": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "diagramId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Diagrams",
+                  "namespace": "public"
+                }
+              },
+              "project": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "projectId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Projects",
+                  "namespace": "public"
+                }
+              },
+              "replies": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "replyToId"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
+                  "namespace": "public"
+                }
+              },
+              "replyTo": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "replyToId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
+                  "namespace": "public"
+                }
+              },
+              "resolver": {
+                "cardinality": "N:1",
+                "nullable": true,
+                "on": {
+                  "localFields": [
+                    "resolvedBy"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Users",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "actionResult": {
+                  "column": "action_result"
+                },
+                "actionStatus": {
+                  "column": "action_status"
+                },
+                "authorId": {
+                  "column": "author_id"
+                },
+                "content": {
+                  "column": "content"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "diagramId": {
+                  "column": "diagram_id"
+                },
+                "errorMessage": {
+                  "column": "error_message"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "model": {
+                  "column": "model"
+                },
+                "projectId": {
+                  "column": "project_id"
+                },
+                "proposedActions": {
+                  "column": "proposed_actions"
+                },
+                "replyToId": {
+                  "column": "reply_to"
+                },
+                "resolvedAt": {
+                  "column": "resolved_at"
+                },
+                "resolvedBy": {
+                  "column": "resolved_by"
+                }
+              },
+              "namespaceId": "public",
+              "table": "chat_messages"
             }
           },
           "CodeGenerationJobs": {
@@ -828,6 +1230,21 @@
                 },
                 "to": {
                   "model": "BackendDeployments",
+                  "namespace": "public"
+                }
+              },
+              "chatMessages": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "diagramId"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
                   "namespace": "public"
                 }
               },
@@ -1242,8 +1659,148 @@
               "table": "project_members"
             }
           },
+          "ProjectMemoryEntries": {
+            "fields": {
+              "content": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              },
+              "createdBy": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "kind": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "memory_kind"
+                  }
+                }
+              },
+              "projectId": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/uuid@1",
+                  "kind": "scalar"
+                }
+              },
+              "title": {
+                "nullable": false,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 200
+                  }
+                }
+              },
+              "updatedAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {
+              "project": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "projectId"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Projects",
+                  "namespace": "public"
+                }
+              },
+              "user": {
+                "cardinality": "N:1",
+                "nullable": false,
+                "on": {
+                  "localFields": [
+                    "createdBy"
+                  ],
+                  "targetFields": [
+                    "id"
+                  ]
+                },
+                "to": {
+                  "model": "Users",
+                  "namespace": "public"
+                }
+              }
+            },
+            "storage": {
+              "fields": {
+                "content": {
+                  "column": "content"
+                },
+                "createdAt": {
+                  "column": "created_at"
+                },
+                "createdBy": {
+                  "column": "created_by"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "kind": {
+                  "column": "kind"
+                },
+                "projectId": {
+                  "column": "project_id"
+                },
+                "title": {
+                  "column": "title"
+                },
+                "updatedAt": {
+                  "column": "updated_at"
+                }
+              },
+              "namespaceId": "public",
+              "table": "project_memory_entries"
+            }
+          },
           "Projects": {
             "fields": {
+              "aiMode": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/enum@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "typeName": "ai_mode"
+                  }
+                }
+              },
               "createdAt": {
                 "nullable": false,
                 "type": {
@@ -1291,6 +1848,21 @@
               }
             },
             "relations": {
+              "chatMessages": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "projectId"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
+                  "namespace": "public"
+                }
+              },
               "diagrams": {
                 "cardinality": "1:N",
                 "on": {
@@ -1336,10 +1908,28 @@
                   "model": "ProjectMembers",
                   "namespace": "public"
                 }
+              },
+              "projectMemory": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "projectId"
+                  ]
+                },
+                "to": {
+                  "model": "ProjectMemoryEntries",
+                  "namespace": "public"
+                }
               }
             },
             "storage": {
               "fields": {
+                "aiMode": {
+                  "column": "ai_mode"
+                },
                 "createdAt": {
                   "column": "created_at"
                 },
@@ -2220,6 +2810,13 @@
                   "kind": "scalar"
                 }
               },
+              "isAdmin": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "passwordHash": {
                 "nullable": false,
                 "type": {
@@ -2254,6 +2851,21 @@
                   "namespace": "public"
                 }
               },
+              "aiSettings": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "updatedBy"
+                  ]
+                },
+                "to": {
+                  "model": "AiSettings",
+                  "namespace": "public"
+                }
+              },
               "backendDeployments": {
                 "cardinality": "1:N",
                 "on": {
@@ -2266,6 +2878,21 @@
                 },
                 "to": {
                   "model": "BackendDeployments",
+                  "namespace": "public"
+                }
+              },
+              "chatMessages": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "authorId"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
                   "namespace": "public"
                 }
               },
@@ -2344,6 +2971,21 @@
                   "namespace": "public"
                 }
               },
+              "projectMemory": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "createdBy"
+                  ]
+                },
+                "to": {
+                  "model": "ProjectMemoryEntries",
+                  "namespace": "public"
+                }
+              },
               "projects": {
                 "cardinality": "1:N",
                 "on": {
@@ -2356,6 +2998,21 @@
                 },
                 "to": {
                   "model": "Projects",
+                  "namespace": "public"
+                }
+              },
+              "resolvedProposals": {
+                "cardinality": "1:N",
+                "on": {
+                  "localFields": [
+                    "id"
+                  ],
+                  "targetFields": [
+                    "resolvedBy"
+                  ]
+                },
+                "to": {
+                  "model": "ChatMessages",
                   "namespace": "public"
                 }
               },
@@ -2391,6 +3048,9 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "isAdmin": {
+                  "column": "is_admin"
                 },
                 "passwordHash": {
                   "column": "password_hash"
@@ -2563,6 +3223,34 @@
               ],
               "typeName": "ai_input_type"
             },
+            "ai_mode": {
+              "kind": "postgres-enum",
+              "members": [
+                "ANSWER",
+                "PROPOSE",
+                "EXECUTE"
+              ],
+              "typeName": "ai_mode"
+            },
+            "ai_provider": {
+              "kind": "postgres-enum",
+              "members": [
+                "GEMINI",
+                "OPENAI_COMPATIBLE"
+              ],
+              "typeName": "ai_provider"
+            },
+            "chat_action_status": {
+              "kind": "postgres-enum",
+              "members": [
+                "NONE",
+                "PROPOSED",
+                "APPLIED",
+                "REJECTED",
+                "FAILED"
+              ],
+              "typeName": "chat_action_status"
+            },
             "codegen_status": {
               "kind": "postgres-enum",
               "members": [
@@ -2606,6 +3294,15 @@
                 "FAILED"
               ],
               "typeName": "job_status"
+            },
+            "memory_kind": {
+              "kind": "postgres-enum",
+              "members": [
+                "DECISION",
+                "REQUIREMENT",
+                "SUMMARY"
+              ],
+              "typeName": "memory_kind"
             },
             "project_role": {
               "kind": "postgres-enum",
@@ -2653,10 +3350,20 @@
               "namespaceId": "public",
               "tableName": "ai_command_logs"
             },
+            "ai_settings": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "ai_settings"
+            },
             "backend_deployments": {
               "kind": "rls",
               "namespaceId": "public",
               "tableName": "backend_deployments"
+            },
+            "chat_messages": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "chat_messages"
             },
             "code_generation_jobs": {
               "kind": "rls",
@@ -2682,6 +3389,11 @@
               "kind": "rls",
               "namespaceId": "public",
               "tableName": "project_members"
+            },
+            "project_memory_entries": {
+              "kind": "rls",
+              "namespaceId": "public",
+              "tableName": "project_memory_entries"
             },
             "projects": {
               "kind": "rls",
@@ -2870,6 +3582,131 @@
               },
               "uniques": []
             },
+            "ai_settings": {
+              "columns": {
+                "base_url": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 500
+                  }
+                },
+                "context_budget": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 24000
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "enabled": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "max_tokens": {
+                  "codecId": "pg/int4@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": 8192
+                  },
+                  "nativeType": "int4",
+                  "nullable": false
+                },
+                "model": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 150
+                  }
+                },
+                "provider": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "GEMINI"
+                  },
+                  "nativeType": "ai_provider",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "ai_provider"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "AiProvider",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "updated_by": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "ai_settings_updated_by_fkey",
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "updated_by"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "ai_settings"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                }
+              ],
+              "indexes": [],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "ai_settings_pkey"
+              },
+              "uniques": []
+            },
             "backend_deployments": {
               "columns": {
                 "api_url": {
@@ -3053,6 +3890,211 @@
                   "name": "backend_deployments_diagram_id_key"
                 }
               ]
+            },
+            "chat_messages": {
+              "columns": {
+                "action_result": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "action_status": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "NONE"
+                  },
+                  "nativeType": "chat_action_status",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "chat_action_status"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "ChatActionStatus",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "author_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "content": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "diagram_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "error_message": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": true
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "model": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 150
+                  }
+                },
+                "project_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "proposed_actions": {
+                  "codecId": "pg/jsonb@1",
+                  "nativeType": "jsonb",
+                  "nullable": true
+                },
+                "reply_to": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                },
+                "resolved_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "nativeType": "timestamptz",
+                  "nullable": true
+                },
+                "resolved_by": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": true
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "chat_messages_project_id_fkey",
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "project_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "projects"
+                  }
+                },
+                {
+                  "name": "chat_messages_diagram_id_fkey",
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "diagram_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "diagrams"
+                  }
+                },
+                {
+                  "name": "chat_messages_author_id_fkey",
+                  "source": {
+                    "columns": [
+                      "author_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                },
+                {
+                  "name": "chat_messages_resolved_by_fkey",
+                  "source": {
+                    "columns": [
+                      "resolved_by"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                },
+                {
+                  "name": "chat_messages_reply_to_fkey",
+                  "onDelete": "setNull",
+                  "source": {
+                    "columns": [
+                      "reply_to"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "chat_messages"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "project_id",
+                    "created_at"
+                  ],
+                  "name": "idx_chat_messages_project",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "chat_messages_pkey"
+              },
+              "uniques": []
             },
             "code_generation_jobs": {
               "columns": {
@@ -3674,8 +4716,147 @@
                 }
               ]
             },
+            "project_memory_entries": {
+              "columns": {
+                "content": {
+                  "codecId": "pg/text@1",
+                  "nativeType": "text",
+                  "nullable": false
+                },
+                "created_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                },
+                "created_by": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "id": {
+                  "codecId": "pg/uuid@1",
+                  "default": {
+                    "expression": "gen_random_uuid()",
+                    "kind": "function"
+                  },
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "kind": {
+                  "codecId": "pg/enum@1",
+                  "nativeType": "memory_kind",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "memory_kind"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "MemoryKind",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
+                "project_id": {
+                  "codecId": "pg/uuid@1",
+                  "nativeType": "uuid",
+                  "nullable": false
+                },
+                "title": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": false,
+                  "typeParams": {
+                    "length": 200
+                  }
+                },
+                "updated_at": {
+                  "codecId": "pg/timestamptz-string@1",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nativeType": "timestamptz",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [
+                {
+                  "name": "project_memory_entries_project_id_fkey",
+                  "onDelete": "cascade",
+                  "source": {
+                    "columns": [
+                      "project_id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "project_memory_entries"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "projects"
+                  }
+                },
+                {
+                  "name": "project_memory_entries_created_by_fkey",
+                  "source": {
+                    "columns": [
+                      "created_by"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "project_memory_entries"
+                  },
+                  "target": {
+                    "columns": [
+                      "id"
+                    ],
+                    "namespaceId": "public",
+                    "tableName": "users"
+                  }
+                }
+              ],
+              "indexes": [
+                {
+                  "columns": [
+                    "project_id"
+                  ],
+                  "name": "idx_project_memory_entries_project",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ],
+                "name": "project_memory_entries_pkey"
+              },
+              "uniques": []
+            },
             "projects": {
               "columns": {
+                "ai_mode": {
+                  "codecId": "pg/enum@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": "PROPOSE"
+                  },
+                  "nativeType": "ai_mode",
+                  "nullable": false,
+                  "typeParams": {
+                    "typeName": "ai_mode"
+                  },
+                  "valueSet": {
+                    "entityKind": "valueSet",
+                    "entityName": "AiMode",
+                    "namespaceId": "public",
+                    "plane": "storage"
+                  }
+                },
                 "created_at": {
                   "codecId": "pg/timestamptz-string@1",
                   "default": {
@@ -4514,6 +5695,15 @@
                   "nativeType": "uuid",
                   "nullable": false
                 },
+                "is_admin": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "password_hash": {
                   "codecId": "sql/varchar@1",
                   "nativeType": "character varying",
@@ -4693,6 +5883,31 @@
                 "TEXT"
               ]
             },
+            "AiMode": {
+              "kind": "valueSet",
+              "values": [
+                "ANSWER",
+                "PROPOSE",
+                "EXECUTE"
+              ]
+            },
+            "AiProvider": {
+              "kind": "valueSet",
+              "values": [
+                "GEMINI",
+                "OPENAI_COMPATIBLE"
+              ]
+            },
+            "ChatActionStatus": {
+              "kind": "valueSet",
+              "values": [
+                "NONE",
+                "PROPOSED",
+                "APPLIED",
+                "REJECTED",
+                "FAILED"
+              ]
+            },
             "CodegenStatus": {
               "kind": "valueSet",
               "values": [
@@ -4731,6 +5946,14 @@
                 "PROCESSING",
                 "COMPLETED",
                 "FAILED"
+              ]
+            },
+            "MemoryKind": {
+              "kind": "valueSet",
+              "values": [
+                "DECISION",
+                "REQUIREMENT",
+                "SUMMARY"
               ]
             },
             "ProjectRole": {
@@ -4774,7 +5997,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "18ca028a38acaf17fc89e415c288f82756b72afde4aa0efe1900ad0793c7142d"
+    "storageHash": "f2c2904ce5c29032cb133dbad40aecab148754ab8c3372908691bd55eca88978"
   },
   "capabilities": {
     "postgres": {

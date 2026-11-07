@@ -38,6 +38,8 @@ export interface UserResponse {
   full_name: string;
   email: string;
   avatar_url: string | null;
+  /** CU11 — El editor enseña la configuración de la IA sólo a quien la puede cambiar. */
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -143,6 +145,7 @@ export class AuthService {
       full_name: user.fullName,
       email: user.email,
       avatar_url: user.avatarUrl,
+      is_admin: user.isAdmin,
       created_at: new Date(user.createdAt).toISOString(),
       updated_at: new Date(user.updatedAt).toISOString(),
     };

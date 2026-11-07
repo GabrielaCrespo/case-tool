@@ -32,6 +32,14 @@ demasiado a la suerte:
 - [ ] Cuota de Groq disponible. En el plan gratuito son mil tokens de salida por minuto **y por
       modelo**; encadenar varias importaciones de imagen seguidas topa con el límite. Si la
       defensa lleva varias pruebas de IA, conviene el Dev Tier.
+- [ ] **Segundo parcial:** la llave de Gemini en el servidor, un usuario administrador
+      (`UPDATE users SET is_admin = TRUE …`) y, en «Servicio de IA», *Probar conexión* en verde
+      el mismo día. **Ojo con la cuota gratuita de Gemini**: el 2026-11-07 era de 20 peticiones
+      al día para `gemini-3.6-flash`, y ensayar la demo ya la gasta. No ensayar con el modelo que
+      se va a usar en la defensa, o elegir uno con más cuota (`gemini-3.5-flash-lite`), o activar
+      la facturación.
+- [ ] En el proyecto de la demo, la **memoria** con al menos una decisión técnica escrita de
+      antemano (por ejemplo: «toda entidad lleva fechaRegistro de tipo LocalDateTime»).
 
 ---
 
@@ -180,6 +188,70 @@ conexión».
 
 ---
 
+# Segundo parcial — la IA como integrante del equipo
+
+Unos **doce minutos** más. Se hace con los mismos dos navegadores del punto 1, con el diagrama
+**Sistema de ventas** abierto en los dos y el chat abierto en los dos.
+
+## 10. El servicio de IA · CU11 · 2 min
+
+1. Con el administrador, botón **Servicio de IA** en la cabecera.
+2. Enseñar que la llave aparece como «configurada» pero no se ve en ninguna parte: vive en una
+   variable de entorno del servidor, no en la base.
+3. *Probar conexión*: dice qué modelo contestó y cuánto tardó.
+4. Desmarcar «Asistente de IA disponible» y *Guardar*: en el chat del editor aparece «IA no
+   disponible» con el motivo. Volver a marcarlo.
+
+> **Lo que hay que decir:** el servidor y el modelo se cambian aquí, sin tocar código. Un modelo
+> autoalojado (Ollama, LM Studio) es elegir «Servidor compatible con OpenAI» y poner su dirección.
+
+## 11. Una pregunta que ve todo el equipo · CU12 y CU13 · 3 min
+
+1. En el navegador A: «¿Qué le falta a este diagrama para registrar qué productos se venden en
+   cada nota de venta?».
+2. En el navegador B, **sin tocar nada**: el botón Chat cuenta un mensaje nuevo; al abrirlo se ve
+   la pregunta de A y «La IA está respondiendo…».
+3. Llega la respuesta a los dos a la vez. Nombra **NOTAVENTA** y **PRODUCTO**: no es una respuesta
+   de manual, es sobre este diagrama.
+4. En el navegador B, seguir la conversación: «¿Y qué multiplicidades tendrían esas relaciones?».
+   Responde apoyándose en lo que dijo antes.
+
+> **Lo que hay que decir:** cada pregunta lleva el proyecto entero —memoria, descripción, el
+> diagrama con su validación, los demás diagramas y los últimos mensajes—. Las preguntas se
+> responden de una en una por proyecto, y lo dice: «En cola».
+
+## 12. La memoria del proyecto · CU14 · 3 min
+
+1. Pantalla del proyecto → pestaña **Memoria del proyecto**: descripción, la decisión técnica
+   preparada, requisitos y diagramas.
+2. En el chat: «¿Qué atributos le faltan a CLIENTE según las decisiones del proyecto?». Responde
+   con la decisión guardada (fechaRegistro).
+3. Volver a la memoria → *Resumir conversación*: la IA guarda un resumen de lo hablado, que queda
+   como una entrada más y se puede corregir.
+4. Con el otro usuario, enseñar que la ve pero no la puede cambiar: sólo el propietario.
+
+## 13. Delegar un cambio · CU15 · 4 min
+
+1. En la cabecera del chat, el propietario deja el modo en **Propone cambios**.
+2. En el navegador B: «Crea la entidad DETALLENOTA con cantidad Integer y relaciónala con
+   NOTAVENTA (1 a 1..*) y con PRODUCTO (1 a 0..*)». La IA contesta «Propongo…» y aparece una
+   tarjeta con los tres pasos y *Aplicar* / *Descartar*. El lienzo **no** ha cambiado.
+3. En el navegador A, *Aplicar*: DETALLENOTA aparece en el lienzo de los dos, y la tarjeta dice
+   «Aplicado por …».
+4. En el navegador B: «Agrega a CLIENTE el atributo telefono de tipo String». Llega otra
+   tarjeta. Antes de aplicarla, en el navegador A **seleccionar CLIENTE** en el lienzo (queda
+   tomado). Desde B, *Aplicar*: dice que A está editando CLIENTE y **no aplica nada**; la
+   propuesta sigue pendiente. Quitar la selección en A y volver a *Aplicar* desde B: ahora sí.
+5. Cambiar el modo a **Aplica cambios** y pedir «Agrega a NOTAVENTA el atributo observacion de
+   tipo String»: se aplica al responder. Pedir una opinión, en cambio, no toca nada.
+
+> **Lo que hay que decir:** lo que propone la IA pasa por el mismo validador y los mismos
+> servicios que una edición a mano —por eso respeta los bloqueos y llega al lienzo de todos—, y
+> se vuelve a validar al aplicarlo: si entretanto alguien cambió el diagrama, no se aplica a
+> ciegas.
+
+---
+
 ## Si algo falla en directo
 
 | Qué falla | Qué hacer |
@@ -189,3 +261,6 @@ conexión».
 | El móvil no reconoce la voz | Escribir la orden en la misma casilla: la interpreta igual. |
 | El modelo de lenguaje no acierta | Usar una frase con la forma «registrar `<entidad>` `<campo>` `<valor>`»: eso lo entienden las reglas del teléfono, que aciertan siempre. |
 | No hay red en la sala | Todo el punto 8 funciona igual. Los puntos 1 a 7 no: necesitan el servidor. |
+| El chat dice que se agotó la cuota diaria | Con el administrador, «Servicio de IA» → otro modelo (`gemini-3.5-flash-lite`) → *Probar conexión* → *Guardar*. Cada modelo tiene su propia cuota. |
+| El chat dice que el modelo está saturado | Es Google (`503 high demand`); el servidor ya reintentó una vez. Volver a preguntar en unos segundos. |
+| La IA no propone acciones en el punto 13 | Pedirlo en imperativo y con los nombres exactos («Crea la entidad…», «Agrega a CLIENTE…»). |

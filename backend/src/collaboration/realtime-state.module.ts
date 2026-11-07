@@ -1,4 +1,5 @@
 import { Global, Module } from '@nestjs/common';
+import { ChatEventsService } from './chat-events.service.js';
 import { DiagramEventsService } from './diagram-events.service.js';
 import { LockRegistryService } from './lock-registry.service.js';
 
@@ -10,10 +11,13 @@ import { LockRegistryService } from './lock-registry.service.js';
  * ya dependen entre sí: los servicios de CU02 (que avisan de cada cambio y
  * consultan los bloqueos antes de escribir) y el gateway de CU03 (que difunde y
  * concede). Así ninguno tiene que importar al otro.
+ *
+ * CU13 añade el canal del chat del equipo, por la misma razón: lo usan el
+ * asistente (que avisa) y el gateway (que difunde a la sala del proyecto).
  */
 @Global()
 @Module({
-  providers: [DiagramEventsService, LockRegistryService],
-  exports: [DiagramEventsService, LockRegistryService],
+  providers: [DiagramEventsService, LockRegistryService, ChatEventsService],
+  exports: [DiagramEventsService, LockRegistryService, ChatEventsService],
 })
 export class RealtimeStateModule {}

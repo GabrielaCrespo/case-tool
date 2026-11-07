@@ -11,8 +11,121 @@ export interface User {
   full_name: string
   email: string
   avatar_url: string | null
+  /**
+   * CU11 — Puede configurar el servicio de IA. Opcional porque una sesión
+   * guardada antes de que existiera no lo trae hasta revalidarse.
+   */
+  is_admin?: boolean
   created_at: string
   updated_at: string
+}
+
+/** CU12/CU13 — Un mensaje del chat del equipo con la IA. */
+export interface ChatMessage {
+  id: string
+  project_id: string
+  diagram_id: string | null
+  diagram_name: string | null
+  /** null es la IA. */
+  author: { id: string; full_name: string } | null
+  /** En la respuesta de la IA, la pregunta a la que contesta. */
+  reply_to: string | null
+  content: string
+  /** CU15 — Los cambios que propone la IA; `summary` dice qué hará cada uno. */
+  proposed_actions: { actions: unknown[]; summary: string[] } | null
+  action_status: 'NONE' | 'PROPOSED' | 'APPLIED' | 'REJECTED' | 'FAILED'
+  /** Qué se hizo al aplicarlos, o por qué no se pudo. */
+  action_result: string | null
+  /** Quién los aplicó o los descartó. */
+  resolved_by: { id: string; full_name: string } | null
+  resolved_at: string | null
+  model: string | null
+  /** La IA no pudo responder; content lo explica. */
+  error_message: string | null
+  created_at: string
+}
+
+/** CU14 — Qué se guarda en la memoria del proyecto. */
+export type MemoryKind = 'DECISION' | 'REQUIREMENT' | 'SUMMARY'
+
+export interface MemoryEntry {
+  id: string
+  project_id: string
+  kind: MemoryKind
+  title: string
+  content: string
+  created_by: { id: string; full_name: string }
+  created_at: string
+  updated_at: string
+}
+
+export interface MemoryEntryInput {
+  kind?: MemoryKind
+  title?: string
+  content?: string
+}
+
+/** CU14 — Todo lo que la IA sabe del proyecto. */
+export interface ProjectMemory {
+  project_id: string
+  description: string | null
+  /** Sólo el propietario cambia la memoria. */
+  can_edit: boolean
+  entries: MemoryEntry[]
+  /** Los diagramas se leen del modelo en cada pregunta, no se guardan aparte. */
+  diagrams: { id: string; name: string; classes: number; relationships: number }[]
+}
+
+/** CU11 — De qué variable de entorno sale la llave, y si está puesta. */
+export interface ApiKeyStatus {
+  env: string
+  required: boolean
+  configured: boolean
+}
+
+/** CU11 — La configuración del modelo del chat (sólo administradores). */
+export interface AiSettings {
+  provider: 'GEMINI' | 'OPENAI_COMPATIBLE'
+  base_url: string
+  model: string
+  enabled: boolean
+  context_budget: number
+  max_tokens: number
+  api_key: ApiKeyStatus
+  /** false mientras se usan los valores por defecto, sin guardar. */
+  saved: boolean
+  updated_by: string | null
+  updated_at: string | null
+}
+
+export interface AiSettingsInput {
+  provider?: AiSettings['provider']
+  base_url?: string
+  model?: string
+  enabled?: boolean
+  context_budget?: number
+  max_tokens?: number
+}
+
+export interface AiSettingsTest {
+  ok: boolean
+  provider: AiSettings['provider']
+  base_url: string
+  model: string
+  api_key: ApiKeyStatus
+  latency_ms: number | null
+  reply: string | null
+  message: string
+}
+
+/** CU11 — Si al asistente del chat se le puede preguntar ahora. */
+export interface AiStatus {
+  enabled: boolean
+  available: boolean
+  provider: 'GEMINI' | 'OPENAI_COMPATIBLE'
+  model: string
+  /** Por qué no está disponible. */
+  reason: string | null
 }
 
 export interface AuthResponse {
@@ -21,11 +134,18 @@ export interface AuthResponse {
   user: User
 }
 
+/**
+ * CU15 — Hasta dónde llega la IA del chat en el proyecto: sólo responder,
+ * proponer cambios que una persona aplica, o aplicarlos ella misma.
+ */
+export type AiMode = 'ANSWER' | 'PROPOSE' | 'EXECUTE'
+
 export interface Project {
   id: string
   name: string
   description: string | null
   owner_id: string
+  ai_mode: AiMode
   created_at: string
   updated_at: string
 }
@@ -33,6 +153,7 @@ export interface Project {
 export interface ProjectInput {
   name?: string
   description?: string | null
+  ai_mode?: AiMode
 }
 
 /** CU03 — Una persona con acceso al proyecto. */

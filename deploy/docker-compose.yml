@@ -114,6 +114,13 @@ services:
       GROQ_AUDIO_MODEL: ${GROQ_AUDIO_MODEL:-whisper-large-v3-turbo}
       GROQ_AUDIO_LANGUAGE: ${GROQ_AUDIO_LANGUAGE:-es}
 
+      # CU11–CU15, el chat del equipo con la IA. Sólo las llaves: el servidor
+      # y el modelo se eligen en la pantalla «Servicio de IA» y se guardan en
+      # la base (ai_settings). Las dos pueden ir vacías; sin la de Gemini, el
+      # chat avisa de que no está configurado y lo demás sigue funcionando.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CHAT_LLM_API_KEY: ${CHAT_LLM_API_KEY:-}
+
       # Publicar backends generados.
       DEPLOY_DOMAIN: ${DOMAIN}
       DEPLOY_NETWORK: case-tool

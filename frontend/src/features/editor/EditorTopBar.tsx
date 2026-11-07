@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  ChatIcon,
   ChevronLeftIcon,
   CloudIcon,
   DownloadIcon,
@@ -9,6 +10,8 @@ import {
   UsersIcon,
 } from '../../components/icons'
 import { Logo } from '../../components/Logo'
+import { cn } from '../../lib/cn'
+import { useChatStore } from '../../store/chat'
 import { useDiagramStore } from '../../store/diagram'
 import { AiAssistant } from './AiAssistant'
 import { DeployDialog } from './DeployDialog'
@@ -22,12 +25,16 @@ const NAME_MAX_LENGTH = 150
 
 /**
  * Cabecera del editor: dónde estoy, cómo se llama el diagrama y si está
- * guardado. A la derecha, quién está conectado (CU03) y el asistente de IA,
- * que entiende instrucciones escritas (CU04) e imágenes de diagramas (CU05).
+ * guardado. A la derecha, quién está conectado (CU03), el asistente de IA,
+ * que entiende instrucciones escritas (CU04) e imágenes de diagramas (CU05), y
+ * el chat del equipo con la IA (CU12/CU13).
  */
 export function EditorTopBar({ projectId }: { projectId: string | null }) {
   const diagram = useDiagramStore((state) => state.diagram)
   const updateDiagram = useDiagramStore((state) => state.updateDiagram)
+  const chatOpen = useChatStore((state) => state.open)
+  const unread = useChatStore((state) => state.unread)
+  const setChatOpen = useChatStore((state) => state.setOpen)
 
   const [editing, setEditing] = useState(false)
   const [sharing, setSharing] = useState(false)
@@ -179,6 +186,33 @@ export function EditorTopBar({ projectId }: { projectId: string | null }) {
       </button>
 
       <AiAssistant open={assisting} onClose={() => setAssisting(false)} />
+
+      {/* CU12 y CU13 — El chat del equipo, donde la IA es un integrante más.
+          No es el asistente de al lado: aquél cambia el diagrama al momento y
+          sólo lo ve quien lo usa; en el chat se pregunta y todo el equipo lee
+          la conversación. El contador avisa de lo que llegó con el chat
+          cerrado. */}
+      <button
+        type="button"
+        disabled={projectId === null}
+        onClick={() => setChatOpen(!chatOpen)}
+        aria-pressed={chatOpen}
+        title="Chat del equipo con la IA"
+        className={cn(
+          'relative flex shrink-0 items-center gap-1.5 rounded-[3px] border px-2 py-1.5 text-[12.5px] font-medium transition-colors disabled:cursor-not-allowed disabled:text-ink-400',
+          chatOpen
+            ? 'border-signal-200 bg-signal-50 text-signal-700'
+            : 'border-ink-200 text-ink-700 hover:bg-ink-50',
+        )}
+      >
+        <ChatIcon className="size-4" />
+        <span className="hidden lg:inline">Chat</span>
+        {unread > 0 && !chatOpen && (
+          <span className="absolute -top-1.5 -right-1.5 flex min-w-4 items-center justify-center rounded-full bg-signal-600 px-1 text-[10px] leading-4 font-semibold text-white">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
     </header>
   )
 }

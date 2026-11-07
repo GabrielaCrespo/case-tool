@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react'
 import type { Socket } from 'socket.io-client'
+import type { ChatMessage } from '../api/types'
 import { useAuthStore } from '../store/auth'
+import { useChatStore } from '../store/chat'
 import { useDiagramStore } from '../store/diagram'
 import { createCollaborationSocket } from './socket'
 import type {
+  AiStatusEvent,
   DiagramChange,
   JoinAck,
   LockableType,
@@ -43,6 +46,11 @@ function acquireLock(socket: Socket, element: Held): void {
  *
  * Los cambios propios siguen guardándose por la API REST (CU02); aquí sólo se
  * recibe lo que ya está guardado.
+ *
+ * CU13 — Por la misma conexión llega el chat del equipo: al entrar en un
+ * diagrama el servidor une también a la sala de su proyecto, y de ahí vienen
+ * las preguntas de los demás, las respuestas de la IA y a cuál está
+ * respondiendo.
  */
 export function useCollaboration(diagramId: string | undefined) {
   const token = useAuthStore((state) => state.token)
@@ -84,6 +92,8 @@ export function useCollaboration(diagramId: string | undefined) {
           const selected = store.selection
           heldRef.current = selected ? { type: selected.kind, id: selected.id } : null
           if (heldRef.current) acquireLock(socket, heldRef.current)
+          // Igual con el chat: lo dicho mientras no había sala no llegó.
+          void useChatStore.getState().reload()
         }
         joined = true
       })
@@ -116,6 +126,15 @@ export function useCollaboration(diagramId: string | undefined) {
 
     socket.on(COLLABORATION_EVENTS.changed, (change: DiagramChange) => {
       useDiagramStore.getState().applyRemoteChange(change)
+    })
+
+    // CU13 — Un mensaje nuevo y uno que cambió (una propuesta aplicada) se
+    // tratan igual: el store los guarda por identificador.
+    const receiveMessage = (message: ChatMessage) => useChatStore.getState().receive(message)
+    socket.on(COLLABORATION_EVENTS.chatMessage, receiveMessage)
+    socket.on(COLLABORATION_EVENTS.chatUpdated, receiveMessage)
+    socket.on(COLLABORATION_EVENTS.aiStatus, (event: AiStatusEvent) => {
+      useChatStore.getState().applyStatus(event)
     })
 
     return () => {

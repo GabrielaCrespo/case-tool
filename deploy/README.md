@@ -194,6 +194,7 @@ como `SecureString`:
 |---|---|
 | `/case-tool/JWT_SECRET` | Con qué se firman los tokens del servidor |
 | `/case-tool/GROQ_API_KEY` | CU04 y CU05 |
+| `/case-tool/GEMINI_API_KEY` | CU11–CU15, el chat del equipo (segundo parcial) |
 | `/case-tool/DEPLOY_DB_PASSWORD` | El PostgreSQL de la instancia: la base de la herramienta y las de los backends publicados |
 
 `/case-tool/DATABASE_URL` ya no se usa: era la cadena de Supabase, y ahora
@@ -242,6 +243,58 @@ docker compose up -d --build
 
 Los backends ya publicados no se tocan: son contenedores independientes y
 siguen corriendo. Se vuelven a publicar desde el editor si hace falta.
+
+Si el cambio trae columnas o tablas nuevas, hay que pasarlas también a la base
+de la instancia **antes** de levantar el backend nuevo:
+
+```bash
+docker compose build migrate api web
+docker compose run --rm migrate    # aplica lo que falte del contrato y vuelve a firmar
+docker compose up -d
+```
+
+## Segundo parcial: el chat del equipo (CU11–CU15)
+
+Lo que hay que hacer una vez en la instancia para pasar del primer parcial al
+segundo:
+
+1. **La llave de Gemini, en SSM y en `deploy/.env`:**
+
+   ```bash
+   aws ssm put-parameter --name /case-tool/GEMINI_API_KEY --type SecureString \
+     --value 'la-llave' --profile case-tool --region us-east-1
+   ```
+
+   y en la instancia añadir `GEMINI_API_KEY=` a `deploy/.env` leyendo ese
+   parámetro, igual que los demás.
+
+2. **La base:** `docker compose run --rm migrate` aplica lo nuevo —`users.is_admin`,
+   `projects.ai_mode`, `ai_settings`, `project_memory_entries`, `chat_messages` y sus
+   cuatro tipos—. Son sólo altas: no toca ni borra nada de lo que ya hay.
+
+3. **Un administrador**, que es quien elige el modelo del chat. No hay pantalla
+   para nombrarlo, a propósito:
+
+   ```bash
+   docker exec case-tool-postgres psql -U postgres -d case_tool \
+     -c "UPDATE users SET is_admin = TRUE WHERE email = 'su-correo@ejemplo.com';"
+   ```
+
+   Tiene que volver a entrar en la aplicación para que el editor le enseñe el
+   acceso «Servicio de IA».
+
+4. **El modelo.** Desde «Servicio de IA», «Probar conexión» antes de guardar.
+   **Cuidado con la cuota gratuita de Gemini**: el 2026-11-07 era de 20 peticiones
+   al día para `gemini-3.6-flash` —el modelo por defecto—, y un equipo la agota en
+   una mañana. La cuota es por modelo, así que si se acaba basta con elegir otro
+   (`gemini-3.5-flash-lite` respondía bien y tenía la suya) o activar la
+   facturación de Google AI Studio. El mensaje de error dice cuándo se renueva.
+
+El chat viaja por el mismo socket que la colaboración (CU03), bajo
+`/api/socket.io`: el editor separa el prefijo `/api` del espacio de nombres
+`/collaboration` (`frontend/src/realtime/socket.ts`). Antes no lo hacía y el
+socket se iba a la raíz del dominio, que atiende el editor, así que con el
+despliegue bajo `/api` el tiempo real no podía conectar.
 
 ## Dar de baja todo
 

@@ -15,9 +15,11 @@ import { Button, IconButton } from '../../components/ui/Button'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States'
 import { useToast } from '../../components/ui/toast-context'
+import { cn } from '../../lib/cn'
 import { formatDate, formatRelative } from '../../lib/format'
 import { useResource } from '../../lib/useResource'
 import { DiagramFormModal } from './DiagramFormModal'
+import { ProjectMemoryPanel } from './ProjectMemoryPanel'
 
 const NO_DIAGRAMS: Diagram[] = []
 
@@ -53,6 +55,8 @@ export function ProjectDetail({ project, onEdit, onDeleted, onBack }: ProjectDet
   const [pendingDelete, setPendingDelete] = useState<PendingDelete | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [importing, setImporting] = useState(false)
+  // CU14 — La memoria del proyecto va en su propia pestaña, junto a los diagramas.
+  const [tab, setTab] = useState<'diagrams' | 'memory'>('diagrams')
 
   const diagrams = resource.status === 'ready' ? resource.data : NO_DIAGRAMS
 
@@ -177,15 +181,39 @@ export function ProjectDetail({ project, onEdit, onDeleted, onBack }: ProjectDet
       </header>
 
       <div className="flex items-center justify-between gap-4 rule-b bg-ink-50/60 px-5 py-3 sm:px-8">
-        <h2 className="text-[13px] font-semibold text-ink-700">
-          Diagramas
-          {resource.status === 'ready' && (
-            <span className="ml-2 font-mono text-[12px] font-normal text-ink-400">
-              {diagrams.length}
-            </span>
-          )}
-        </h2>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div role="tablist" aria-label="Contenido del proyecto" className="flex items-center gap-1">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'diagrams'}
+            onClick={() => setTab('diagrams')}
+            className={cn(
+              'rounded-[3px] px-2 py-1 text-[13px] font-semibold transition-colors',
+              tab === 'diagrams' ? 'bg-white text-ink-900 shadow-[0_0_0_1px_var(--color-ink-200)]' : 'text-ink-500 hover:text-ink-800',
+            )}
+          >
+            Diagramas
+            {resource.status === 'ready' && (
+              <span className="ml-2 font-mono text-[12px] font-normal text-ink-400">
+                {diagrams.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'memory'}
+            onClick={() => setTab('memory')}
+            title="Lo que la IA del chat recuerda de este proyecto"
+            className={cn(
+              'rounded-[3px] px-2 py-1 text-[13px] font-semibold transition-colors',
+              tab === 'memory' ? 'bg-white text-ink-900 shadow-[0_0_0_1px_var(--color-ink-200)]' : 'text-ink-500 hover:text-ink-800',
+            )}
+          >
+            Memoria del proyecto
+          </button>
+        </div>
+        <div className={cn('flex shrink-0 items-center gap-1.5', tab !== 'diagrams' && 'hidden')}>
           {/* El input va oculto y lo abre la etiqueta: un `input type=file` no
               se puede peinar como los demás botones de la interfaz. */}
           <label
@@ -221,7 +249,9 @@ export function ProjectDetail({ project, onEdit, onDeleted, onBack }: ProjectDet
       </div>
 
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
-        {resource.status === 'loading' ? (
+        {tab === 'memory' ? (
+          <ProjectMemoryPanel project={project} onEditDescription={onEdit} />
+        ) : resource.status === 'loading' ? (
           <LoadingState label="Cargando diagramas…" />
         ) : resource.status === 'error' ? (
           <ErrorState message={resource.message} onRetry={reload} />

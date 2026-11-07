@@ -13,15 +13,20 @@ artificial y generación automática de backend**
 ![Flutter](https://img.shields.io/badge/Flutter-3.13+-02569B?logo=flutter&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![Groq](https://img.shields.io/badge/IA-Groq-F55036)
-![Tests](https://img.shields.io/badge/backend_tests-47_passed-success)
+![Gemini](https://img.shields.io/badge/chat-Gemini-4285F4)
+![Tests](https://img.shields.io/badge/backend_tests-150_passed-success)
+![Mobile tests](https://img.shields.io/badge/mobile_tests-46_passed-success)
 
-> **Estado del proyecto:** los diez casos de uso (CU01–CU10) están implementados y verificados
-> contra el código. La herramienta está desplegada en AWS y accesible en
-> **https://case-tool-gabriela.duckdns.org** ([§18](#18-despliegue)); también se puede ejecutar
-> en local, con PostgreSQL y Traefik en Docker
-> ([§16.2](#162-base-de-datos) y [§16.11](#1611-publicar-en-local-cu08-y-usar-el-teléfono-cu09cu10)).
-> No existe pipeline de CI/CD ni archivo de licencia
-> (ver [Roadmap, pendientes y limitaciones](#21-roadmap-pendientes-y-limitaciones)).
+> **Estado del proyecto:** los quince casos de uso están implementados y verificados contra el
+> código: CU01–CU10 del primer parcial y **CU11–CU15 del segundo**, que convierten a la IA en un
+> integrante más del equipo —chat compartido en tiempo real, memoria del proyecto y propuestas de
+> cambio que el equipo aplica— ([§8](#segundo-parcial--la-ia-como-integrante-del-equipo-cu11cu15)).
+> La herramienta se despliega en AWS en **https://case-tool-gabriela.duckdns.org**
+> ([§18](#18-despliegue)); la instancia se apaga cuando no se usa, así que la dirección sólo
+> responde con ella encendida. También se puede ejecutar en local, con PostgreSQL y Traefik en
+> Docker ([§16.2](#162-base-de-datos) y
+> [§16.11](#1611-publicar-en-local-cu08-y-usar-el-teléfono-cu09cu10)). No existe pipeline de CI/CD
+> ni archivo de licencia (ver [Roadmap, pendientes y limitaciones](#21-roadmap-pendientes-y-limitaciones)).
 
 > **Sobre este documento:** fue redactado inspeccionando el repositorio real —`package.json`,
 > `prisma.config.ts`, `src/prisma/contract.prisma`, `src/`, `generator/src/`, `mobile/lib/`,
@@ -81,8 +86,8 @@ Documentos de acompañamiento que ya existen en el repositorio:
 
 | Archivo | Para qué sirve |
 |---|---|
-| [`PLAN.md`](PLAN.md) | Plan de trabajo histórico y registro de decisiones cerradas. **No** describe el estado actual (ver [Discrepancias](#24-discrepancias-detectadas)). |
-| [`DEMO.md`](DEMO.md) | Guion de la defensa: los diez casos de uso en el orden en que se demuestran, con tiempos y plan B por si algo falla en directo. |
+| [`PLAN.md`](PLAN.md) | Plan del segundo parcial (CU11–CU15) con sus decisiones, archivos por caso de uso, fases y estado; debajo, el plan del primer parcial como registro histórico. |
+| [`DEMO.md`](DEMO.md) | Guion de la defensa: los quince casos de uso en el orden en que se demuestran, con tiempos y plan B por si algo falla en directo. |
 | [`deploy/README.md`](deploy/README.md) | Puesta en producción paso a paso: instancia, Docker, Traefik, TLS y gestión de secretos. |
 | [`generator/README.md`](generator/README.md) | Detalle de cómo el generador traduce el modelo UML a código Java. |
 
@@ -140,6 +145,18 @@ flowchart TD
   resolución manual de conflictos.
 - Asistente por voz **en el dispositivo** (reconocimiento de voz on-device + modelo de lenguaje
   local Gemma 3 1B), con gramática determinista de respaldo.
+
+**Segundo parcial — la IA como integrante del equipo (CU11–CU15):**
+
+- Configuración del servicio de IA del chat por un administrador: proveedor, servidor, modelo,
+  disponibilidad y presupuesto de contexto, con prueba de conexión. Las llaves, sólo en variables
+  de entorno.
+- Chat del equipo por proyecto, en tiempo real: cada integrante pregunta y todos ven las preguntas
+  y las respuestas; la IA responde de una en una con el contexto completo del proyecto.
+- Memoria del proyecto: descripción, decisiones técnicas, requisitos, diagramas y resúmenes de
+  conversaciones anteriores, que la IA tiene en cuenta en cada respuesta.
+- Delegación de tareas: según el modo del proyecto, la IA sólo responde, propone cambios que el
+  equipo aplica o descarta, o los aplica ella; siempre a través del mismo ejecutor que CU04.
 
 **Explícitamente fuera de alcance** (decisiones cerradas, documentadas en `PLAN.md` §"Decisiones ya
 tomadas"):
@@ -383,6 +400,7 @@ Spring Boot Actuator, PostgreSQL, Maven, Docker (multi-stage: `maven:3.9-eclipse
 | Interpretación de texto (CU04) | Groq | `openai/gpt-oss-20b` | `GROQ_TEXT_MODEL` |
 | Visión — imagen a modelo (CU05) | Groq | `qwen/qwen3.8-27b` | `GROQ_VISION_MODEL` |
 | Transcripción de audio (CU04 por voz) | Groq | `whisper-large-v3-turbo` | `GROQ_AUDIO_MODEL` |
+| Chat del equipo (CU11–CU15) | Google AI Studio (Gemini), por su API compatible con OpenAI; o cualquier servidor compatible (Ollama, LM Studio) | `gemini-3.6-flash` por defecto; se cambia en la pantalla «Servicio de IA» | `GEMINI_API_KEY` / `CHAT_LLM_API_KEY` (sólo las llaves) |
 | IA local del móvil (CU09) | En el dispositivo | Gemma 3 1B (`flutter_gemma`) | — (descarga en primer uso) |
 | Reconocimiento de voz del móvil | En el dispositivo (`sherpa_onnx`) | Moonshine base `es` cuantizado + Silero VAD, dentro del APK | — |
 | Intercambio de modelos (CU06) | XMI **2.1** sobre UML **2.1** | Dialecto de Enterprise Architect, IDs `EAID_<UUID>` | — |
@@ -449,6 +467,28 @@ flowchart LR
 | Reglas propias | La clave primaria nunca se pide en el formulario; sin fusión automática de conflictos; el modelo de lenguaje se descarga aparte, no viaja en el APK. |
 | Estado | **Implementado** |
 
+### Segundo parcial — la IA como integrante del equipo (CU11–CU15)
+
+> El catálogo oficial reparte CU01–CU10 en cuatro módulos y cuatro paquetes. Para CU11–CU15 el
+> documento académico todavía no fija nombre de módulo ni de paquete: **pendiente** de nombrar,
+> por eso aquí van agrupados bajo el título del parcial y no con un número inventado.
+
+| Aspecto | Detalle |
+|---|---|
+| Casos de uso | CU11, CU12, CU13, CU14, CU15 |
+| Código | [`backend/src/assistant/`](backend/src/assistant), [`backend/src/collaboration/chat-events.service.ts`](backend/src/collaboration/chat-events.service.ts), [`frontend/src/features/assistant/TeamChatPanel.tsx`](frontend/src/features/assistant/TeamChatPanel.tsx), [`frontend/src/features/projects/ProjectMemoryPanel.tsx`](frontend/src/features/projects/ProjectMemoryPanel.tsx), [`frontend/src/features/admin/AiSettingsPage.tsx`](frontend/src/features/admin/AiSettingsPage.tsx), [`frontend/src/store/chat.ts`](frontend/src/store/chat.ts) |
+| Qué resuelve | La IA deja de ser una herramienta individual (el asistente de CU04, que sólo ve quien lo usa) y pasa a ser un integrante del equipo: responde en un chat que todos leen, con el contexto completo del proyecto, recuerda lo que el equipo decidió y puede proponer o aplicar cambios en el diagrama. |
+| Reglas propias | Una pregunta a la vez por proyecto. Las llaves nunca en la base. Los cambios que propone la IA se validan con el mismo ejecutor que CU04 y se **revalidan al aplicarlos**; si alguien tiene tomado lo que tocan, no se aplica nada y se dice quién. Los resúmenes de la memoria se piden con un botón. |
+| Estado | **Implementado** |
+
+| Caso de uso | Cómo funciona |
+|---|---|
+| **CU11** Configurar Servicio de IA | Pantalla «Servicio de IA» (sólo `users.is_admin`): proveedor (`GEMINI` u `OPENAI_COMPATIBLE`), `base_url`, modelo, disponibilidad, presupuesto de contexto y `max_tokens`, guardados en `ai_settings`. «Probar conexión» llama al modelo sin guardar nada y avisa si falta la variable de la llave. Cambiar de servidor —también a uno autoalojado— es sólo cambiar esta configuración. |
+| **CU12** Consultar al Asistente de IA | `POST /projects/:id/chat` guarda la pregunta y la encola; la IA responde con un contexto en orden estable: instrucciones, memoria, descripción, el diagrama abierto con su validación, una línea por cada otro diagrama, los últimos 8 mensajes y la pregunta, recortado al presupuesto configurado. Si falla, responde igual con un mensaje que explica por qué. |
+| **CU13** Visualizar Conversaciones del Equipo | Al abrir un diagrama, el socket de CU03 entra también en la sala `project:<id>`. Por ella llegan `chat:message` (cada mensaje guardado), `ai:status` (a qué pregunta está respondiendo la IA) y `chat:updated` (una propuesta que se aplicó o descartó). Botón «Chat» con contador de no leídos. |
+| **CU14** Gestionar Memoria del Proyecto | Pestaña «Memoria del proyecto»: descripción, decisiones técnicas, requisitos, resúmenes y diagramas (éstos se leen del modelo). La ve el equipo; la cambia el propietario, que también pide a la IA el resumen de lo nuevo del chat. |
+| **CU15** Delegar Ejecución de Tareas a la IA | `projects.ai_mode`: `ANSWER` (sólo responde), `PROPOSE` (tarjeta «Aplicar / Descartar» para cualquiera del equipo) o `EXECUTE` (aplica al responder, en nombre de quien pidió). Lo elige el propietario desde el chat. |
+
 ---
 
 ## 9. Modelo UML y PUDS
@@ -468,11 +508,18 @@ Actores de apoyo (sistemas externos, no humanos):
 | Enterprise Architect | Origen y destino de los archivos XMI. | [`backend/src/xmi/xmi-format.ts`](backend/src/xmi/xmi-format.ts) |
 | Docker / Traefik | Ejecutan y exponen los backends publicados. | [`backend/src/deployments/deployments.service.ts`](backend/src/deployments/deployments.service.ts), [`deploy/docker-compose.yml`](deploy/docker-compose.yml) |
 
-> **Sobre el rol `VIEWER`:** existe en el esquema y en el tipo enumerado, pero **no se verificó
-> servicio por servicio** que todas las rutas de escritura lo rechacen. Marcado como
-> [pendiente de verificación](#21-roadmap-pendientes-y-limitaciones).
+> **Sobre los roles, verificado en el código:** en la práctica hay dos niveles. El **propietario**
+> renombra, borra e invita (`findOwnedProject`), y ahora también cambia la memoria (CU14) y el modo
+> de la IA (CU15). **Todo invitado es editor**: `POST /projects/:id/members` sólo recibe el correo,
+> la fila se crea con el valor por defecto `EDITOR`, y ningún servicio lee la columna `role`. El
+> valor `VIEWER` existe en el tipo enumerado pero no se puede asignar ni tiene efecto.
+>
+> **Segundo parcial — Administrador** (CU11): no es un rol de proyecto sino de la plataforma,
+> `users.is_admin`, asignado por SQL; no hay pantalla para otorgarlo. Su código de actor en el
+> catálogo está **pendiente** (no se inventa uno aquí). El **Propietario** de CU14 es el `OWNER`
+> del proyecto, es decir, A01 en ese rol.
 
-### 9.2 Casos de uso CU01–CU10
+### 9.2 Casos de uso CU01–CU15
 
 > Las columnas **Ciclo**, **Prioridad** y **Riesgo** no se extraen del código: son una
 > clasificación PUDS derivada del orden de fases de [`PLAN.md`](PLAN.md) y de su
@@ -491,6 +538,11 @@ Actores de apoyo (sistemas externos, no humanos):
 | **CU08** | Publicar Backend Generado | Dejar el backend generado corriendo en una URL pública con TLS y QR de conexión. | A01 + Docker/Traefik | Construcción III | Alta | **Alto** — memoria de la instancia, socket de Docker | ✅ Implementado |
 | **CU09** | Utilizar Aplicación Móvil | Consumir cualquier backend publicado desde una app genérica dirigida por `/api/_meta`, con asistente de voz local. | A02 | Construcción III | Alta | Medio — acierto del modelo de 1B | ✅ Implementado |
 | **CU10** | Trabajar sin Conexión y Sincronizar Información | Operar sin red, encolar cambios, sincronizar en orden y resolver conflictos a mano. | A02 | Transición | Alta | **Alto** — orden y traducción de IDs | ✅ Implementado |
+| **CU11** | Configurar Servicio de IA | Elegir el modelo del chat, su servidor y su disponibilidad, y probar la conexión. | Administrador | Segundo parcial | Alta | **Alto** — cuota del plan gratuito | ✅ Implementado |
+| **CU12** | Consultar al Asistente de IA | Preguntar a la IA sobre el proyecto y recibir una respuesta con el contexto del diseño. | A01 + Gemini | Segundo parcial | Alta | Medio | ✅ Implementado |
+| **CU13** | Visualizar Conversaciones del Equipo | Ver en tiempo real las preguntas de todos y las respuestas de la IA. | A01 (≥2) | Segundo parcial | Alta | Medio | ✅ Implementado |
+| **CU14** | Gestionar Memoria del Proyecto | Mantener la descripción, las decisiones, los requisitos y los resúmenes que usa la IA. | A01 (propietario) | Segundo parcial | Media | Bajo | ✅ Implementado |
+| **CU15** | Delegar Ejecución de Tareas a la IA | Pedir a la IA que analice, proponga o aplique cambios en el diagrama. | A01 + Gemini | Segundo parcial | Alta | **Alto** — cambios concurrentes y bloqueos | ✅ Implementado |
 
 ### 9.3 Paquetes
 
@@ -957,6 +1009,12 @@ Consecuencias verificables en el código:
 | `code_generation_jobs` | CU07: estado, `compile_check_passed`, `smoke_check_passed` (`NULL` = no se llegó a comprobar), URL del artefacto. | `ON DELETE CASCADE` |
 | `backend_deployments` | CU08: estado, slug, URL pública, contenedor y base asociados. | **`UNIQUE(diagram_id)`** — un despliegue por diagrama; `job_id … ON DELETE SET NULL` |
 | `diagram_change_log` | Bitácora de auditoría de cada cambio del modelo (quién, operación, tipo de entidad, payload). | `ON DELETE CASCADE`; escrita desde `diagrams.service.ts` |
+| `ai_settings` | **CU11.** Una sola fila: proveedor, `base_url`, modelo, disponibilidad, presupuesto de contexto y `max_tokens` del chat. **Nunca la llave.** Sin fila, se usan los valores por defecto. | `updated_by → users ON DELETE SET NULL` |
+| `project_memory_entries` | **CU14.** Decisiones técnicas, requisitos y resúmenes del proyecto, con su autor. | `project_id → projects ON DELETE CASCADE` |
+| `chat_messages` | **CU12/CU13/CU15.** El chat del equipo: autor (`NULL` = la IA), diagrama desde el que se preguntó, pregunta a la que responde, y la propuesta de cambios con su estado y quién la resolvió. | `project_id ON DELETE CASCADE`; `diagram_id` y `reply_to ON DELETE SET NULL` |
+
+Columnas añadidas en el segundo parcial: `users.is_admin` (CU11) y `projects.ai_mode` (CU15, por
+defecto `PROPOSE`). Con ellas el esquema tiene **18 tablas** (15 en el primer parcial).
 
 **Tipos enumerados** (`database/db.sql` §Tipos):
 
@@ -971,9 +1029,15 @@ Consecuencias verificables en el código:
 | `deployment_status` | `PENDING`, `BUILDING`, `STARTING`, `RUNNING`, `FAILED`, `STOPPED` |
 | `xmi_direction` | `IMPORT`, `EXPORT` |
 | `diagram_entity_type` | `CLASS`, `ATTRIBUTE`, `METHOD`, `RELATIONSHIP`, `DIAGRAM` |
+| `ai_provider` | `GEMINI`, `OPENAI_COMPATIBLE` *(de qué variable sale la llave)* |
+| `ai_mode` | `ANSWER`, `PROPOSE`, `EXECUTE` |
+| `chat_action_status` | `NONE`, `PROPOSED`, `APPLIED`, `REJECTED`, `FAILED` |
+| `memory_kind` | `DECISION`, `REQUIREMENT`, `SUMMARY` |
 
 **Triggers:** función genérica `set_updated_at()` aplicada a `users`, `projects`, `diagrams`,
-`uml_classes`, `uml_attributes` y `uml_relationships`.
+`uml_classes`, `uml_attributes` y `uml_relationships`. Las tablas nuevas (`backend_deployments`,
+`ai_settings`, `project_memory_entries`) escriben `updated_at` desde el servicio: así una base
+preparada sólo con `prisma db update` se comporta igual que una creada con `db.sql`.
 
 ### 10.3 Esquema Prisma 8 / PostgreSQL
 
@@ -1052,10 +1116,10 @@ npx prisma db update               # lo destructivo pide confirmación
 | `POST` | `/projects` | Crear proyecto. |
 | `GET` | `/projects` | Listar proyectos del usuario. |
 | `GET` | `/projects/:id` | Detalle de un proyecto. |
-| `PATCH` | `/projects/:id` | Renombrar / editar descripción. |
+| `PATCH` | `/projects/:id` | Renombrar, editar la descripción o cambiar `ai_mode` (CU15). Sólo el propietario. |
 | `DELETE` | `/projects/:id` | Eliminar proyecto (arrastra diagramas por cascada). |
 | `GET` | `/projects/:id/members` | Listar miembros y roles. |
-| `POST` | `/projects/:id/members` | Invitar a un usuario con un rol. |
+| `POST` | `/projects/:id/members` | Invitar por correo a un usuario registrado; entra como `EDITOR`. |
 | `DELETE` | `/projects/:id/members/:userId` | Quitar a un miembro. |
 
 #### CU02 — Diagramas y modelo UML
@@ -1083,7 +1147,11 @@ npx prisma db update               # lo destructivo pide confirmación
 |---|---|---|---|
 | `POST` | `/ai/interpret` | JSON | Instrucción escrita → operaciones validadas sobre el modelo. |
 | `POST` | `/ai/voice` | `multipart` (audio) | Transcribe con Whisper y aplica el mismo flujo que `interpret`. |
-| `POST` | `/ai/image-to-uml` | `multipart` (imagen) | Lee un diagrama fotografiado y devuelve el modelo leído. |
+| `POST` | `/ai/image-to-uml` | `multipart` (imagen) | Lee un diagrama fotografiado, aplica lo leído y devuelve el diagrama completo. |
+
+> Las tres **aplican el cambio en la misma llamada** si todo pasa la validación (todo o nada): no
+> hay un paso de confirmación previo. Lo que sí se confirma es lo que propone la IA del chat
+> (CU15, modo `PROPOSE`).
 
 #### CU06 — XMI
 
@@ -1109,10 +1177,40 @@ npx prisma db update               # lo destructivo pide confirmación
 | `GET` | `/diagrams/:id/deployment/logs` | Últimas líneas del contenedor. |
 | `DELETE` | `/diagrams/:id/deployment` | Da de baja: para el contenedor y borra su base. |
 
+#### CU11 — Configurar Servicio de IA — `backend/src/assistant/ai-settings.controller.ts`
+
+| Método | Ruta | Descripción | Quién |
+|---|---|---|---|
+| `GET` | `/ai/settings` | Configuración del chat y si la llave está puesta (nunca la llave). | Administrador |
+| `PATCH` | `/ai/settings` | Cambiar proveedor, `base_url`, modelo, disponibilidad, contexto o `max_tokens`. | Administrador |
+| `POST` | `/ai/settings/test` | Probar la configuración guardada, o la del cuerpo, **sin guardarla**. Responde 200 con `ok: true/false`. | Administrador |
+| `GET` | `/ai/status` | Si al chat se le puede preguntar, y si no, por qué. | Cualquiera |
+
+#### CU12, CU13 y CU15 — El chat del equipo — `backend/src/assistant/assistant.controller.ts`
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/projects/:projectId/chat?limit=&before=` | Historial del chat del proyecto, del más antiguo al más reciente. |
+| `POST` | `/projects/:projectId/chat` | Preguntar (`content`, `diagram_id`). Devuelve la pregunta; la respuesta llega por la sala. 503 si la IA no está disponible, 429 con 5 preguntas esperando. |
+| `POST` | `/chat/:messageId/apply` | CU15 — Aplicar una propuesta, revalidándola. 409 si ya se resolvió o si alguien tiene tomado lo que toca (y dice quién). |
+| `POST` | `/chat/:messageId/reject` | CU15 — Descartar una propuesta. |
+
+#### CU14 — Memoria del proyecto — `backend/src/assistant/project-memory.controller.ts`
+
+| Método | Ruta | Descripción | Quién |
+|---|---|---|---|
+| `GET` | `/projects/:projectId/memory` | Descripción, entradas y diagramas (con sus cuentas). | Equipo |
+| `POST` | `/projects/:projectId/memory` | Crear una entrada (`kind`, `title`, `content`). | Propietario |
+| `PATCH` `DELETE` | `/memory/:id` | Corregir o borrar una entrada. | Propietario |
+| `POST` | `/projects/:projectId/memory/summary` | La IA resume lo nuevo del chat desde el último resumen. | Propietario |
+
 ### 11.2 WebSocket / Socket.IO
 
 **Namespace:** `/collaboration` · **Autenticación:** el mismo JWT, en `auth.token` del *handshake*
-(o `?token=`) · **Salas:** una por diagrama, `diagram:<id>`.
+(o `?token=`) · **Salas:** una por diagrama, `diagram:<id>`, y desde el segundo parcial una por
+proyecto, `project:<id>`, en la que se entra con el mismo `diagram:join` · **Camino:** `/socket.io`
+en local; en producción `/api/socket.io`, porque el editor separa el prefijo `/api` del espacio de
+nombres ([`socket.ts`](frontend/src/realtime/socket.ts)).
 
 | Evento | Sentido | Payload | Qué hace |
 |---|---|---|---|
@@ -1124,6 +1222,9 @@ npx prisma db update               # lo destructivo pide confirmación
 | `lock:release` | cliente → servidor | `{ elementType, elementId }` | Libera el bloqueo. |
 | `lock:changed` | servidor → sala | `{ …, holder }` | Notifica quién tiene (o dejó de tener) un elemento. `holder: null` = libre. |
 | `diagram:changed` | servidor → sala | unión etiquetada de cambios REST | Difunde un cambio **ya guardado**: `class.created`, `attribute.updated`, `relationship.deleted`, `diagram.updated`… |
+| `chat:message` | servidor → `project:<id>` | el mensaje, igual que en `GET …/chat` | CU13 — Un mensaje guardado: una pregunta o una respuesta de la IA. |
+| `chat:updated` | servidor → `project:<id>` | el mensaje | CU15 — Una propuesta que se aplicó, se descartó o falló. |
+| `ai:status` | servidor → `project:<id>` | `{ question_id, state }` | CU13 — La IA empieza (`thinking`) o termina (`idle`) de responder una pregunta. |
 
 ### 11.3 Estrategia de persistencia antes de difusión
 
@@ -1406,10 +1507,9 @@ flowchart TB
     GQ --> RAW["Acciones crudas (JSON)"]
     RAW --> NORM["uml-actions.ts — normalización"]
     NORM --> PLAN["AiExecutorService.plan()<br/>valida contra catálogo de tipos<br/>y contra el estado real del diagrama"]
-    PLAN --> REP["Informe: aplicables · rechazadas con motivo"]
-    REP --> USER{"¿El usuario confirma?"}
-    USER -->|no| FIN["No se toca nada"]
-    USER -->|sí| APPLY["apply() — todo o nada<br/>vía ClassesService / RelationshipsService"]
+    PLAN --> OK{"¿Alguna rechazada?"}
+    OK -->|sí| FIN["No se toca nada;<br/>se dice el motivo"]
+    OK -->|no| APPLY["apply()<br/>vía ClassesService / RelationshipsService"]
     APPLY --> DB[("PostgreSQL")]
     APPLY --> WS["Se difunde por CU03"]
     APPLY --> LOG["ai_command_logs (auditoría)"]
@@ -1417,10 +1517,14 @@ flowchart TB
 
 Puntos verificados en el código:
 
-- La ejecución es en **dos pasos** (`plan` → `apply`) y **todo o nada**.
+- La ejecución es en **dos pasos** (`plan` → `apply`) y la validación es **todo o nada**: si una
+  acción no encaja, no se aplica ninguna.
 - La IA **no escribe directamente en la base**: usa los mismos servicios que la edición manual, y
   por eso hereda validación, cascadas, bloqueos y difusión por WebSocket.
-- El usuario **siempre ve lo que se entendió antes de aplicarlo**.
+- **En CU04 y CU05 no hay confirmación previa**: si todo pasa la validación, se aplica en la misma
+  llamada, y lo que se ve después es el resultado. (Una versión anterior de este documento decía
+  lo contrario; ver [Discrepancias](#24-discrepancias-detectadas).) La confirmación sí existe en
+  el chat del equipo, modo `PROPOSE` (CU15).
 - `layout.ts` coloca las clases nuevas en el lienzo sin solaparlas.
 
 ### 14.3 Qué no se guarda
@@ -1438,6 +1542,26 @@ Puntos verificados en el código:
 | **Prompts frágiles** | Al pedirle al lector de imágenes que se saltara la columna `id`, dejó de reconocer la entidad intermedia. Cualquier cambio en `prompts.ts` o de modelo puede degradar el resultado. | Banco de pruebas contra la API real: `AI_BANK=1 npx vitest run src/ai/ai-bank.spec.ts` (6 pruebas, omitidas por defecto). |
 | **Cuota por modelo** | Encadenar varias importaciones de imagen topa con el límite del plan gratuito. | Modelos separados por capacidad; `DEMO.md` prevé el caso y ofrece plan B. |
 | **Sin conexión no hay asistente** | Consecuencia aceptada de quitar el modelo local. | El diseño manual, la colaboración, el XMI y la generación no la necesitan. La IA del **móvil** sí es local. |
+
+### 14.5 La IA del chat del equipo (CU11–CU15)
+
+Es un camino aparte del de CU04/CU05, a propósito: aquéllos siguen con Groq y sus prompts
+afinados, y el chat se puede llevar a otro servidor sin tocarlos.
+
+| Pieza | Archivo | Qué hace |
+|---|---|---|
+| Cliente | [`chat-llm-client.ts`](backend/src/assistant/chat-llm-client.ts) | Habla con cualquier API compatible con OpenAI. Manda sólo `model`, `messages` y `max_tokens`, porque cada servidor entiende distinto el resto. Reintenta una vez un 429 corto o un 500/502/503 (Google responde `503 high demand` aunque todo esté bien). Si el JSON llega roto, le pide al modelo que lo repare una vez. |
+| Configuración | [`ai-settings.service.ts`](backend/src/assistant/ai-settings.service.ts) | `ai_settings` (CU11). La llave sale de la variable del proveedor —`GEMINI_API_KEY` o `CHAT_LLM_API_KEY`—, nunca de la base ni de la pantalla. |
+| Contexto | [`assistant-context.ts`](backend/src/assistant/assistant-context.ts) | Instrucciones, memoria, descripción, diagrama abierto con su validación, otros diagramas, últimos 8 mensajes y pregunta, dentro de un presupuesto de tokens. Si no cabe, quita primero los mensajes antiguos y lo dice. |
+| Cola | [`project-queue.ts`](backend/src/assistant/project-queue.ts) | Una pregunta a la vez por proyecto, como mucho 5 esperando. |
+| Propuestas | [`proposal.ts`](backend/src/assistant/proposal.ts) | Las acciones las lee `parseActions` y las valida `AiExecutorService.plan`, igual que en CU04; el catálogo de acciones se toma del propio prompt de CU04. Antes de aplicar se miran los bloqueos de CU03. |
+| Memoria | [`project-memory.service.ts`](backend/src/assistant/project-memory.service.ts) | CU14, y el resumen de la conversación con un botón. |
+
+> **Cuota del plan gratuito de Gemini.** El 2026-11-07 era de **20 peticiones al día** para
+> `gemini-3.6-flash`, el modelo por defecto, y se agota con un uso normal del equipo. La cuota es
+> por modelo: cuando se acaba, el chat lo dice con la hora en que se renueva, y un administrador
+> puede elegir otro modelo en «Servicio de IA» (`gemini-3.5-flash-lite` tenía la suya) o activar la
+> facturación de Google AI Studio.
 
 ---
 
@@ -1588,6 +1712,8 @@ Al abrirla se pega la URL de un backend publicado o se escanea el QR del editor.
 | `GROQ_TEXT_MODEL` · `GROQ_VISION_MODEL` · `GROQ_AUDIO_MODEL` | — | Un modelo por capacidad (traen valor por defecto). |
 | `GROQ_AUDIO_LANGUAGE` | — | Idioma del dictado (`es`). |
 | `GROQ_TEXT_REASONING` · `GROQ_VISION_REASONING` | — | Esfuerzo de razonamiento por familia de modelo. |
+| `GEMINI_API_KEY` | Para CU11–CU15 | Llave de Google AI Studio para el chat del equipo. Sin ella el chat avisa que no está configurado; lo demás funciona. |
+| `CHAT_LLM_API_KEY` | — | Llave de otro servidor compatible con OpenAI, si el elegido en «Servicio de IA» la pide. |
 | `GENERATOR_JAR` | — | Ruta al `.jar` (por defecto `../generator/target/generator.jar`). |
 | `GENERATED_DIR` | — | Dónde quedan los proyectos generados (`./generated`). |
 | `GENERATED_PACKAGE` | — | Paquete base del backend generado (`com.casetool.generated`). |
@@ -1605,8 +1731,8 @@ Al abrirla se pega la URL de un backend publicado o se escanea el QR del editor.
 Se incrusta **en tiempo de construcción**: cambiar de dominio obliga a reconstruir la imagen.
 
 **`deploy/.env`** ([plantilla](deploy/.env.example)): `DOMAIN`, `ACME_EMAIL`,
-`JWT_SECRET`, `JWT_EXPIRES_IN`, `GROQ_API_KEY`, `DEPLOY_DB_USER`, `DEPLOY_DB_PASSWORD`,
-`MAX_DEPLOYMENTS`. No lleva `DATABASE_URL`: `docker-compose.yml` la arma con `DEPLOY_DB_*`,
+`JWT_SECRET`, `JWT_EXPIRES_IN`, `GROQ_API_KEY`, `GEMINI_API_KEY`, `CHAT_LLM_API_KEY`,
+`DEPLOY_DB_USER`, `DEPLOY_DB_PASSWORD`, `MAX_DEPLOYMENTS`. No lleva `DATABASE_URL`: `docker-compose.yml` la arma con `DEPLOY_DB_*`,
 porque la base de la herramienta está en el mismo PostgreSQL de la instancia.
 
 > **Ninguna credencial se escribe en el código ni entra en una imagen de Docker.** En producción,
@@ -1680,8 +1806,8 @@ En el teléfono:
 
 ### 1. Crear un proyecto (CU01)
 
-Registrarse o iniciar sesión → **Proyectos** → *Nuevo proyecto* → nombre y descripción. Dentro del
-proyecto, *Compartir* invita a otros usuarios con rol `OWNER`, `EDITOR` o `VIEWER`.
+Registrarse o iniciar sesión → **Proyectos** → *Nuevo proyecto* → nombre y descripción. Desde el
+editor, *Invitar* suma a otra persona ya registrada, por su correo; entra como editora.
 
 ### 2. Diseñar el diagrama (CU02)
 
@@ -1710,10 +1836,10 @@ Abrir el mismo diagrama en dos navegadores con dos usuarios del mismo proyecto:
 Botón de la chispa → asistente:
 
 - **Pestaña «Instrucción»:** escribir o dictar («agregá una entidad PRODUCTO con descripción,
-  precio y stock»). Se ve la transcripción, después **lo que se entendió**, y se aplica al
-  confirmar.
+  precio y stock») y pulsar *Aplicar*. Se ve la transcripción y el informe de lo que se hizo; si
+  algo no encaja, no se aplica nada y se dice por qué.
 - **Pestaña «Desde una imagen»:** subir la foto de un diagrama a mano (PNG/JPEG/WEBP, hasta 8 MB).
-  Aparecen las entidades leídas con sus atributos y relaciones para confirmar.
+  Las entidades leídas, con sus atributos y relaciones, se agregan al diagrama.
 
 ### 5. Intercambiar con Enterprise Architect (CU06)
 
@@ -1746,6 +1872,32 @@ Activar el modo avión: el indicador se pone naranja. Leer sigue funcionando (co
 las dictadas por voz, porque la transcripción y la interpretación ocurren en el teléfono—. Al
 quitar el modo avión suben solas y en orden. Si un registro cambió mientras tanto, el `409` lo
 marca y se resuelve eligiendo versión en la pantalla de conflictos.
+
+### 10. Configurar la IA del chat (CU11)
+
+Con un usuario administrador (`users.is_admin`, se asigna por SQL): botón **Servicio de IA** en la
+cabecera → elegir proveedor, servidor y modelo → *Probar conexión* → *Guardar*. La pantalla dice
+si la llave está configurada en el servidor, pero nunca la muestra.
+
+### 11. Preguntar a la IA y ver lo que pregunta el equipo (CU12 y CU13)
+
+En el editor, botón **Chat** → escribir la pregunta (Enter envía). Todo el equipo la ve al
+instante; mientras la IA piensa aparece «La IA está respondiendo…», y las preguntas que esperan
+turno dicen «En cola». Con el chat cerrado, el botón cuenta los mensajes nuevos.
+
+### 12. Mantener la memoria del proyecto (CU14)
+
+En la pantalla del proyecto, pestaña **Memoria del proyecto**: el propietario agrega decisiones
+técnicas y requisitos, edita la descripción, y con *Resumir conversación* la IA guarda un resumen
+de lo nuevo del chat. El resto del equipo la lee.
+
+### 13. Delegar cambios a la IA (CU15)
+
+En la cabecera del chat, el propietario elige qué puede hacer la IA: *Sólo responde*, *Propone
+cambios* o *Aplica cambios*. Con *Propone cambios*, pedirle «crea la entidad DETALLENOTA y
+relaciónala con NOTAVENTA y PRODUCTO» deja una tarjeta con los pasos y los botones *Aplicar* y
+*Descartar*, que cualquiera del equipo puede usar; al aplicarla, el cambio aparece en el lienzo de
+todos.
 
 ---
 
@@ -1798,6 +1950,11 @@ curl  https://<dominio>/api          # el backend
 > y, al volver a levantar la instancia el 6 de noviembre, la base pasó al PostgreSQL de la propia
 > instancia. La instancia se puede apagar cuando no se usa: ver
 > [`deploy/README.md`](deploy/README.md#apagar-y-encender-la-instancia).
+>
+> **Segundo parcial — pendiente de desplegar.** Lo que hace falta en la instancia —la llave de
+> Gemini en SSM, `migrate` para las tablas nuevas y nombrar un administrador— está en
+> [`deploy/README.md`](deploy/README.md#segundo-parcial-el-chat-del-equipo-cu11cu15). Las imágenes
+> de producción (`api`, `web`, `migrate`) se construyeron en local con el código nuevo.
 
 | | |
 |---|---|
@@ -1849,13 +2006,27 @@ despliegue es manual (`git pull` + `docker compose up -d --build`). Ver
 
 ### 19.1 Estado real, ejecutado
 
+Ejecutado el 2026-11-07, al cerrar el segundo parcial:
+
 ```
 $ cd backend && npx vitest run
+ Test Files  13 passed | 1 skipped (14)
+      Tests  150 passed | 6 skipped (156)
 
- Test Files  6 passed | 1 skipped (7)
-      Tests  47 passed | 6 skipped (53)
-   Duration  9.10s
+$ cd backend && npm run test:e2e
+      Tests  1 passed (1)
+
+$ cd mobile && flutter test
+00:00 +46: All tests passed!
 ```
+
+Además de las pruebas automáticas, el segundo parcial se comprobó **contra el servidor en
+marcha, una base aparte y Gemini de verdad**, con scripts que crean sus propios usuarios y
+proyectos y los borran al terminar: CU11 (23 comprobaciones), CU12 (19), CU13 con tres sockets
+(12), CU14 (19, incluida la de que una decisión guardada cambie la respuesta) y CU15 (26:
+aplicar, propuesta vieja, bloqueo, descartar, `EXECUTE`, `ANSWER`); y en Chrome con dos sesiones a
+la vez, también detrás de un proxy que imita el prefijo `/api` de Traefik. Esas comprobaciones no
+forman parte de `vitest` porque gastan cuota.
 
 | Archivo | Tipo | Qué cubre |
 |---|---|---|
@@ -1865,13 +2036,20 @@ $ cd backend && npx vitest run
 | [`src/ai/association-class.spec.ts`](backend/src/ai/association-class.spec.ts) | Unitaria | Ayudante de clase asociativa. |
 | [`src/ai/layout.spec.ts`](backend/src/ai/layout.spec.ts) | Unitaria | Colocación de clases nuevas en el lienzo. |
 | [`src/app.controller.spec.ts`](backend/src/app.controller.spec.ts) | Unitaria | Controlador raíz. |
+| [`src/assistant/chat-llm-client.spec.ts`](backend/src/assistant/chat-llm-client.spec.ts) | Unitaria | CU11–CU15 — cliente del chat contra un servidor simulado: parámetros enviados, llaves, reparación de JSON, 400/404/429/503 y cuota diaria. |
+| [`src/assistant/model-json.spec.ts`](backend/src/assistant/model-json.spec.ts) | Unitaria | Recuperar el JSON del texto del modelo. |
+| [`src/assistant/ai-settings.service.spec.ts`](backend/src/assistant/ai-settings.service.spec.ts) | Unitaria | CU11 — validación de la configuración y prueba de conexión. |
+| [`src/assistant/assistant-context.spec.ts`](backend/src/assistant/assistant-context.spec.ts) | Unitaria | CU12/CU15 — orden del contexto, presupuesto, descripción del diagrama e instrucciones por modo. |
+| [`src/assistant/project-queue.spec.ts`](backend/src/assistant/project-queue.spec.ts) | Unitaria | CU12 — una pregunta a la vez por proyecto. |
+| [`src/assistant/proposal.spec.ts`](backend/src/assistant/proposal.spec.ts) | Unitaria | CU15 — lectura y validación de propuestas, y bloqueos ajenos. |
+| [`src/assistant/project-memory.service.spec.ts`](backend/src/assistant/project-memory.service.spec.ts) | Unitaria | CU14 — entradas de memoria y resumen. |
 | [`src/ai/ai-bank.spec.ts`](backend/src/ai/ai-bank.spec.ts) | **Integración real** | 6 pruebas contra la **API real de Groq**. Omitidas salvo `AI_BANK=1`, porque cuestan cuota. |
 | [`test/app.e2e-spec.ts`](backend/test/app.e2e-spec.ts) | E2E | Arranque de la aplicación con Supertest (`npm run test:e2e`). |
 
 | Componente | Marco | Archivos | Estado |
 |---|---|---|---|
-| Backend | Vitest + Supertest | 7 unitarios + 1 e2e | ✅ **47 pruebas en verde** |
-| Móvil | `flutter_test` | [`meta_test.dart`](mobile/test/meta_test.dart), [`offline_test.dart`](mobile/test/offline_test.dart) (334 líneas), [`voice_test.dart`](mobile/test/voice_test.dart), `meta_fixture.dart` | ✅ Existen y cubren parseo de `_meta`, repositorio offline (alta/edición/borrado online y offline, orden de sincronización, traducción de IDs, marcado de conflictos) y gramática de voz. **No ejecutadas en esta revisión.** |
+| Backend | Vitest + Supertest | 14 unitarios + 1 e2e | ✅ **150 pruebas en verde** (47 del primer parcial) |
+| Móvil | `flutter_test` | [`meta_test.dart`](mobile/test/meta_test.dart), [`offline_test.dart`](mobile/test/offline_test.dart) (334 líneas), [`voice_test.dart`](mobile/test/voice_test.dart), `meta_fixture.dart` | ✅ **46 pruebas en verde**: parseo de `_meta`, repositorio offline (alta/edición/borrado online y offline, orden de sincronización, traducción de IDs, marcado de conflictos) y gramática de voz. |
 | Generador | `spring-boot-starter-test` declarado | `generator/src/test/java/com/casese/generator/` **está vacío** | ❌ **Sin pruebas** |
 | Frontend | — | ninguno | ❌ **Sin pruebas**; la verificación es `tsc -b` + ESLint |
 
@@ -1891,7 +2069,7 @@ cd backend && npm run test:cov
 ```
 case-tool/
 ├── README.md                    este documento
-├── PLAN.md                      plan histórico y decisiones cerradas (no es el estado actual)
+├── PLAN.md                      plan del segundo parcial; debajo, el del primero (histórico)
 ├── DEMO.md                      guion de la defensa, CU por CU
 ├── .dockerignore
 │
@@ -1905,11 +2083,15 @@ case-tool/
 │   │   ├── diagrams/            CU02 — diagrams · classes · relationships · validator ·
 │   │   │                        uml-catalog · diagram-exchange (.case.json)
 │   │   ├── collaboration/       CU03 — gateway · lock-registry · diagram-events · events
+│   │   │                        + chat-events (CU13, sala project:<id>)
 │   │   ├── ai/                  CU04/CU05 — ai.service · groq.service · ai-executor ·
 │   │   │                        prompts · uml-actions · layout (+ 4 .spec.ts)
 │   │   ├── xmi/                 CU06 — generator · parser · format (+ xmi.spec.ts)
 │   │   ├── codegen/             CU07 — invoca generator.jar, Maven, humo y .zip
 │   │   ├── deployments/         CU08 — docker build/run/exec + etiquetas Traefik
+│   │   ├── assistant/           CU11–CU15 — chat-llm-client · model-json · ai-settings ·
+│   │   │                        assistant (chat) · assistant-context · project-queue ·
+│   │   │                        proposal · project-memory (+ 7 .spec.ts)
 │   │   └── prisma/              contract.prisma · contract.json · contract.d.ts · db.ts
 │   ├── test/app.e2e-spec.ts
 │   ├── migrations/              app/refs/db.json + snapshots/  (Prisma 8)
@@ -1925,12 +2107,15 @@ case-tool/
 │   │   ├── components/          AppHeader · Logo · icons · ui/ (kit propio)
 │   │   ├── features/
 │   │   │   ├── auth/            LoginPage · RegisterPage · AuthLayout · validation
-│   │   │   ├── projects/        ProjectsPage · ProjectDetail · modales
-│   │   │   └── editor/          DiagramCanvas · UmlClassNode · UmlRelationEdge · ToolRail ·
-│   │   │                        panel/ · AiAssistant · ExportDialog ·
-│   │   │                        GenerateBackendDialog · DeployDialog · QrCode · ShareDialog
+│   │   │   ├── projects/        ProjectsPage · ProjectDetail · modales ·
+│   │   │   │                    ProjectMemoryPanel (CU14)
+│   │   │   ├── editor/          DiagramCanvas · UmlClassNode · UmlRelationEdge · ToolRail ·
+│   │   │   │                    panel/ · AiAssistant · ExportDialog ·
+│   │   │   │                    GenerateBackendDialog · DeployDialog · QrCode · ShareDialog
+│   │   │   ├── assistant/       TeamChatPanel (CU12, CU13, CU15)
+│   │   │   └── admin/           AiSettingsPage (CU11)
 │   │   ├── realtime/            socket · useCollaboration · useLock · types
-│   │   ├── store/               auth.ts · diagram.ts (Zustand)
+│   │   ├── store/               auth.ts · diagram.ts · chat.ts (Zustand)
 │   │   └── lib/                 cn · format · useResource
 │   ├── Dockerfile · nginx.conf
 │   └── .env.example
@@ -1954,7 +2139,7 @@ case-tool/
 │   └── pubspec.yaml
 │
 ├── database/
-│   ├── db.sql                   esquema completo y comentado (14 tablas + 9 enums + triggers)
+│   ├── db.sql                   esquema completo y comentado (18 tablas + 13 enums + triggers)
 │   └── seed-ventas.sql          diagrama «Sistema de ventas» para la demostración
 │
 ├── deploy/
@@ -1977,7 +2162,10 @@ case-tool/
 | 1 | **Eliminar `whisper-env/`** | Entorno virtual de Python (~283 MB) con `faster-whisper`, `ctranslate2` y `onnxruntime`, resto del diseño anterior con IA local. Ningún archivo de `backend/src` lo referencia. | Peso del repositorio; contradice la convención «Groq, sin alternativa local». |
 | 2 | **Corregir textos de `AiAssistant.tsx`** | La pestaña de imagen aún dice que «se guardará también la imagen original» y que «el modelo lee la imagen en este ordenador». Ambas frases describen el diseño anterior y **contradicen el comportamiento real**. | Confunde al usuario y al evaluador. No afecta la funcionalidad. |
 | 3 | **Decidir sobre `uml_attributes.is_primary_key`** | Columna en desuso, conservada para no tocar filas guardadas. Puede borrarse. | Ruido en el esquema. |
-| 4 | **Actualizar `PLAN.md` o marcarlo como histórico** | Su tabla «Lo que falta» lista CU09, CU10 y el despliegue como pendientes, cuando están implementados. | Induce a error sobre el estado del proyecto. |
+| 4 | **Decidir sobre el valor `VIEWER`** | Existe en el tipo enumerado pero no se puede asignar ni tiene efecto: todos los invitados son editores. O se implementa (elegir el rol al invitar y rechazar escrituras) o se quita. | El documento académico lo cita como rol. |
+
+`PLAN.md`, que figuraba aquí porque se contradecía, ya lleva arriba el plan del segundo parcial y
+deja el del primero marcado como histórico.
 
 ### 21.2 No implementado aún
 
@@ -1988,8 +2176,11 @@ case-tool/
 | 3 | **Pruebas del frontend** | ❌ No hay ningún `.test.tsx` / `.spec.tsx`. Sólo `tsc -b` + ESLint. |
 | 4 | **Archivo `LICENSE`** | ❌ No existe. `backend/package.json` declara `"license": "UNLICENSED"`. |
 | 5 | **Umbrales de cobertura** | ❌ `@vitest/coverage-v8` instalado, sin umbral ni informe versionado. |
-| 6 | **Verificación del rol `VIEWER`** | ⚠️ Definido en el esquema; no se comprobó servicio por servicio que rechace toda escritura. |
+| 6 | **Rol `VIEWER`** | ❌ Verificado: no está implementado (ver [§9.1](#91-actores)). |
 | 7 | **Autenticación en el backend generado** | Fuera de alcance por decisión; el CRUD generado es abierto. |
+| 8 | **Modelo autoalojado para el chat** (Ollama, llama.cpp) | Fuera de alcance del segundo parcial por decisión. El cliente ya lo admite cambiando la configuración de CU11 (proveedor `OPENAI_COMPATIBLE` + `base_url`), sin tocar código; no se probó contra un servidor real. |
+| 9 | **La IA en la lista de presencia** | Recortado del segundo parcial. El chat muestra si la IA está disponible y a qué pregunta responde. |
+| 10 | **Despliegue del segundo parcial en AWS** | ⏳ Pendiente. Los pasos están en [`deploy/README.md`](deploy/README.md#segundo-parcial-el-chat-del-equipo-cu11cu15). |
 
 ### 21.3 Limitaciones conocidas y asumidas
 
@@ -2003,15 +2194,19 @@ case-tool/
 | Socket de Docker montado con escritura | Root del anfitrión para el contenedor `api` | Documentado explícitamente; aceptable en instancia dedicada |
 | Android bloquea HTTP en claro | Hace falta dominio con TLS de verdad, no una IP | Traefik + Let's Encrypt ya resuelven el caso |
 | El arranque de humo es condicional | Sin `SMOKE_DB_URL` queda «no comprobado» | Un portátil sin base de pruebas no debe ver el trabajo como fallido |
+| Cuota gratuita de Gemini | 20 peticiones al día para `gemini-3.6-flash` (2026-11-07): el chat se queda sin respuestas hasta el día siguiente | La cuota es por modelo: se cambia en «Servicio de IA» sin tocar código, o se activa la facturación |
+| La cola del chat vive en memoria | Si el backend se reinicia, las preguntas que esperaban se quedan sin respuesta (siguen guardadas) | Como los bloqueos de CU03: simplicidad; se vuelven a preguntar |
+| El modo de la IA no se difunde | Si el propietario lo cambia, el resto ve el anterior hasta recargar | El servidor aplica siempre el vigente al responder; es sólo la etiqueta |
+| El chat se abre sobre el panel de propiedades | Hay que cerrarlo para volver a las propiedades | Así no le quita ancho al lienzo |
 
 ### 21.4 Roadmap propuesto
 
-1. Cerrar los cuatro puntos de limpieza de [§21.1](#211-pendientes-de-limpieza).
-2. Añadir un flujo de CI (typecheck + pruebas de backend + `flutter analyze`) en GitHub Actions.
-3. Escribir pruebas del generador: dado un `modelo.json` con herencia y una N:M resuelta,
+1. Desplegar el segundo parcial en la instancia ([`deploy/README.md`](deploy/README.md#segundo-parcial-el-chat-del-equipo-cu11cu15)).
+2. Cerrar los cuatro puntos de limpieza de [§21.1](#211-pendientes-de-limpieza).
+3. Añadir un flujo de CI (typecheck + pruebas de backend + `flutter analyze`) en GitHub Actions.
+4. Escribir pruebas del generador: dado un `modelo.json` con herencia y una N:M resuelta,
    comprobar que el proyecto emitido compila.
-4. Cubrir el frontend con pruebas de componente para el lienzo y los diálogos.
-5. Verificar y documentar formalmente el comportamiento del rol `VIEWER`.
+5. Cubrir el frontend con pruebas de componente para el lienzo, los diálogos y el chat.
 6. Añadir `LICENSE` y umbrales de cobertura.
 
 ---
@@ -2049,16 +2244,18 @@ case-tool/
 
 ## 23. Créditos y licencia
 
-**Autoría.** Gabriela Belén Crespo Cárdenas — Ingeniería de Software I, Semestre 2-2026, Primer
-Parcial.
+**Autoría.** Gabriela Belén Crespo Cárdenas — Ingeniería de Software I, Semestre 2-2026, Primer y
+Segundo Parcial.
 
-**Historial del repositorio** (3 commits):
+**Historial del repositorio** (5 commits a 2026-11-07; el segundo parcial todavía sin confirmar):
 
 | Commit | Mensaje |
 |---|---|
 | `badfb78` | Commit inicial: herramienta CASE colaborativa de diseño de datos |
 | `a5e4d96` | Casos de uso finales |
 | `5a4c901` | Arreglos en la app movil |
+| `176f3f2` | Actualización del proyecto |
+| `552b2ee` | Despliegue en AWS con la base de la herramienta en la instancia |
 
 **Licencia.** ⚠️ **No hay archivo `LICENSE` en el repositorio.**
 [`backend/package.json`](backend/package.json) declara `"license": "UNLICENSED"` y
@@ -2091,7 +2288,12 @@ README) y lo que dice el código. **El código es la fuente de verdad.**
 | 10 | **Yjs / CRDT** | El planteamiento inicial del proyecto contemplaba Yjs y Hocuspocus, y `database/db.sql` conserva la nota de que existieron un `crdt_state BYTEA` y una tabla `diagram_versions`. | Ninguna de las dos `package.json` incluye Yjs ni Hocuspocus; la colaboración es Socket.IO con bloqueo por elemento. Las columnas se eliminaron. | Documentado en [§11.3](#113-estrategia-de-persistencia-antes-de-difusión). |
 | 11 | **Alcance de CU08** | Una versión anterior de este README documentaba «publicar» como *operación* y no como caso de uso, y numeraba CU08 = «Descargar el backend generado». | El catálogo oficial de casos de uso define **CU08 = Publicar Backend Generado**. | La descarga se documenta dentro de **CU07**; CU08 es la publicación. |
 | 12 | **`uml_attributes.is_primary_key`** | La columna sugiere que la clave primaria se declara por atributo. | Está **en desuso**: la aplicación no la lee ni la escribe. La clave primaria es siempre `id`, implícita. | Documentado en [§10.1](#101-regla-del-id-implícito). |
-| 13 | **Número de pruebas** | `PLAN.md` afirma «47 tests del backend». | **Verificado ejecutándolas:** 47 pasan, 6 se omiten (banco de IA), en 7 archivos. La cifra es correcta. | Confirmado en [§19.1](#191-estado-real-ejecutado). |
+| 13 | **Número de pruebas** | `PLAN.md` afirma «47 tests del backend». | **Verificado ejecutándolas:** 47 pasaban al cerrar el primer parcial; con el segundo son 150, más 6 omitidas (banco de IA). | Actualizado en [§19.1](#191-estado-real-ejecutado). |
+| 14 | **Rol `VIEWER`** | Una versión anterior de este README decía que el usuario «se especializa en `OWNER`, `EDITOR` y `VIEWER`» y que al invitar se elige el rol. | La invitación sólo recibe el correo, todo invitado queda como `EDITOR` y ningún servicio lee el rol. | Corregido en [§9.1](#91-actores): en la práctica, propietario y editores. |
+| 15 | **Confirmación en CU04/CU05** | Una versión anterior decía que el usuario ve lo entendido y confirma antes de aplicar. | `ai.service.ts` valida y, si todo encaja, aplica en la misma llamada. | Corregido en [§14.2](#142-flujo-común-el-modelo-propone-el-código-valida) y [§17](#17-uso-paso-a-paso). La confirmación existe en CU15 (`PROPOSE`). |
+| 16 | **Número de tablas** | Una versión anterior decía 14. | Eran 15 en el primer parcial (faltaba contar `backend_deployments`); con el segundo son 18. | Corregido en [§10.2](#102-entidades-atributos-y-relaciones) y [§20](#20-estructura-de-carpetas-real). |
+| 17 | **Socket en producción** | Se suponía que la colaboración en tiempo real funcionaba igual en AWS que en local. | Con la API bajo `/api`, `socket.ts` mandaba el socket a la raíz del dominio (que atiende el editor) y con el espacio `/api/collaboration`. Comprobado con un proxy que imita a Traefik: no conectaba. | Corregido en `socket.ts`: prefijo en `path`, espacio `/collaboration`. Verificado en los dos modos. |
+| 18 | **«IA del servidor: Groq, sin alternativa»** | La convención del primer parcial. | El chat del segundo parcial (CU11–CU15) usa Gemini por su propio cliente; Groq sigue siendo la IA de CU04, CU05 y el dictado. | Decisión del segundo parcial, documentada en [§14.5](#145-la-ia-del-chat-del-equipo-cu11cu15) y en `PLAN.md`. |
 
 ---
 
@@ -2109,8 +2311,8 @@ Marque cada punto al revisar este README contra el repositorio.
 - [x] Arquitectura general: componentes, cliente-servidor, capas, y separación herramienta ↔ backend generado
 - [x] Stack tecnológico real con versiones tomadas de los manifiestos
 - [x] Los cuatro módulos funcionales (I a IV)
-- [x] Actores A01 y A02
-- [x] Tabla de CU01–CU10 con ID, nombre, descripción, actor, ciclo, prioridad, riesgo y estado
+- [x] Actores A01 y A02, y el Administrador del segundo parcial
+- [x] Tabla de CU01–CU15 con ID, nombre, descripción, actor, ciclo, prioridad, riesgo y estado
 - [x] Paquetes y su relación con los casos de uso
 - [x] Diagramas Mermaid: componentes, capas, paquetes, casos de uso, clases, secuencia (×4), despliegue
 - [x] Matriz de trazabilidad CU → clases → endpoints → tablas → componentes
@@ -2126,14 +2328,15 @@ Marque cada punto al revisar este README contra el repositorio.
 - [x] Inteligencia artificial: modelos, flujo, validación y qué no se guarda
 - [x] Interoperabilidad XMI y compatibilidad con Enterprise Architect (`EAID_<UUID>`)
 - [x] Instalación: requisitos, variables, comandos, puertos, migraciones y pruebas
-- [x] Uso paso a paso de los nueve escenarios
+- [x] Uso paso a paso de los trece escenarios (CU01–CU15)
 - [x] Despliegue: Compose, Traefik, instancia real y riesgo del socket de Docker
 - [x] Pruebas: inventario real y resultado ejecutado
 - [x] Estructura de carpetas real
 - [x] Roadmap, pendientes y limitaciones
 - [x] Referencias bibliográficas *(las del documento académico quedan pendientes de pegar)*
 - [x] Créditos y licencia *(sin `LICENSE`: señalado)*
-- [x] Discrepancias detectadas (13 registradas)
+- [x] Discrepancias detectadas (18 registradas)
+- [x] Segundo parcial: CU11–CU15 en alcance, módulos, casos de uso, modelo de datos, API, socket, IA, uso, despliegue y pruebas
 - [x] Este checklist
 
 ### Verificaciones de exactitud
@@ -2145,10 +2348,11 @@ Marque cada punto al revisar este README contra el repositorio.
 - [x] Ausencia de CI/CD, `LICENSE`, pruebas del generador y pruebas del frontend verificada con búsqueda en disco
 - [x] Nombres oficiales de CU01–CU10 respetados
 - [x] Lo no implementado marcado como ❌ / ⚠️ / TODO, no omitido ni disimulado
-- [x] No se modificó ningún archivo de código: sólo este `README.md`
+- [x] Lo corregido en el código durante el segundo parcial (socket en producción, panel de propiedades) figura en [Discrepancias](#24-discrepancias-detectadas) o en `PLAN.md`
 
 ### Pendiente de completar a mano
 
 - [ ] Nombre del docente y de la universidad/carrera ([§3](#3-contexto-académico))
+- [ ] Nombre de módulo/paquete para CU11–CU15 y código de actor del Administrador, desde el documento académico ([§8](#segundo-parcial--la-ia-como-integrante-del-equipo-cu11cu15))
 - [ ] Bibliografía del documento académico del parcial ([§22](#22-referencias-bibliográficas))
 - [ ] Decidir y añadir `LICENSE` ([§23](#23-créditos-y-licencia))

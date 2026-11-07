@@ -117,6 +117,22 @@ export const SparkIcon = (p: IconProps) => (
   </Icon>
 )
 
+/** CU13 — El chat del equipo con la IA. */
+export const ChatIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M20 12.5a7.5 7.5 0 0 1-10.9 6.7L4 20.5l1.3-4.6A7.5 7.5 0 1 1 20 12.5z" />
+    <path d="M9 11h6M9 14h4" />
+  </Icon>
+)
+
+/** Enviar un mensaje del chat. */
+export const SendIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4.5 12L20 4.5 15.5 20l-3.2-6.3L4.5 12z" />
+    <path d="M12.3 13.7L20 4.5" />
+  </Icon>
+)
+
 export const UsersIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M15.5 20v-1.5a3.5 3.5 0 00-3.5-3.5H7a3.5 3.5 0 00-3.5 3.5V20M9.5 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zM17 4.3a3.5 3.5 0 010 6.9M20.5 20v-1.5a3.5 3.5 0 00-2.6-3.4" />

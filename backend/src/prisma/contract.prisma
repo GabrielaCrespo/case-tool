@@ -7,15 +7,22 @@ namespace public {
     email              VarChar(150)         @unique(map: "users_email_key")
     passwordHash       VarChar(255)         @map("password_hash")
     avatarUrl          VarChar(500)?        @map("avatar_url")
+    // CU11 — Quién puede configurar el servicio de IA de la plataforma. Se
+    // asigna a mano por SQL: no hay pantalla para otorgarlo.
+    isAdmin            Boolean              @default(false) @map("is_admin")
     createdAt          TimestamptzString    @default(now()) @map("created_at")
     updatedAt          TimestamptzString    @default(now()) @map("updated_at")
     aiCommandLogs      AiCommandLogs[]
+    aiSettings         AiSettings[]
     backendDeployments BackendDeployments[]
+    chatMessages       ChatMessages[]       @relation(name: "chat_messages_author_id_fkey")
+    resolvedProposals  ChatMessages[]       @relation(name: "chat_messages_resolved_by_fkey")
     codeGenerationJobs CodeGenerationJobs[]
     diagramChangeLogs  DiagramChangeLog[]
     diagrams           Diagrams[]
     photoImportJobs    PhotoImportJobs[]
     projectMembers     ProjectMembers[]
+    projectMemory      ProjectMemoryEntries[]
     projects           Projects[]
     xmiExchangeJobs    XmiExchangeJobs[]
 
@@ -28,10 +35,15 @@ namespace public {
     name           VarChar(150)
     description    String?
     ownerId        Uuid              @map("owner_id")
+    // CU15 — Hasta dónde llega la IA en este proyecto: sólo responder,
+    // proponer cambios que alguien aplica, o aplicarlos ella misma.
+    aiMode         pg.enum(AiMode)   @default("PROPOSE") @map("ai_mode")
     createdAt      TimestamptzString @default(now()) @map("created_at")
     updatedAt      TimestamptzString @default(now()) @map("updated_at")
+    chatMessages   ChatMessages[]
     diagrams       Diagrams[]
     projectMembers ProjectMembers[]
+    projectMemory  ProjectMemoryEntries[]
     owner          Users             @relation(fields:[ownerId], references:[id], onDelete: Cascade, map: "projects_owner_id_fkey", index: false)
 
     @@rls
@@ -48,6 +60,7 @@ namespace public {
     updatedAt          TimestamptzString    @default(now()) @map("updated_at")
     aiCommandLogs      AiCommandLogs[]
     backendDeployments BackendDeployments[]
+    chatMessages       ChatMessages[]
     codeGenerationJobs CodeGenerationJobs[]
     diagramChangeLogs  DiagramChangeLog[]
     photoImportJobs    PhotoImportJobs[]
@@ -325,11 +338,128 @@ namespace public {
     @@map("xmi_exchange_jobs")
   }
 
+  // CU11 — Configuración del modelo de IA del chat del equipo (CU12–CU15).
+  //
+  // Una sola fila para toda la plataforma; mientras no exista se usan los
+  // valores por defecto de ai-settings.service.ts. La llave nunca se guarda
+  // aquí: sale de la variable de entorno que corresponde al proveedor.
+  // CU04, CU05 y el dictado no la usan: siguen con Groq.
+  model AiSettings {
+    id            Uuid                 @id(map: "ai_settings_pkey") @default(dbgenerated("gen_random_uuid()"))
+    provider      pg.enum(AiProvider)  @default("GEMINI")
+    baseUrl       VarChar(500)         @map("base_url")
+    model         VarChar(150)
+    enabled       Boolean              @default(true)
+    // Tokens aproximados que se le enseñan al modelo como contexto, y tope de
+    // su respuesta.
+    contextBudget Int                  @default(24000) @map("context_budget")
+    maxTokens     Int                  @default(8192) @map("max_tokens")
+    updatedBy     Uuid?                @map("updated_by")
+    createdAt     TimestamptzString    @default(now()) @map("created_at")
+    updatedAt     TimestamptzString    @default(now()) @map("updated_at")
+    user          Users?               @relation(fields:[updatedBy], references:[id], onDelete: SetNull, map: "ai_settings_updated_by_fkey", index: false)
+
+    @@rls
+    @@map("ai_settings")
+  }
+
+  // CU14 — Lo que la IA debe recordar de un proyecto además de su descripción
+  // y sus diagramas: decisiones técnicas, requisitos y resúmenes de
+  // conversaciones anteriores.
+  model ProjectMemoryEntries {
+    id        Uuid                 @id(map: "project_memory_entries_pkey") @default(dbgenerated("gen_random_uuid()"))
+    projectId Uuid                 @map("project_id")
+    kind      pg.enum(MemoryKind)
+    title     VarChar(200)
+    content   String
+    createdBy Uuid                 @map("created_by")
+    createdAt TimestamptzString    @default(now()) @map("created_at")
+    updatedAt TimestamptzString    @default(now()) @map("updated_at")
+    project   Projects             @relation(fields:[projectId], references:[id], onDelete: Cascade, map: "project_memory_entries_project_id_fkey")
+    user      Users                @relation(fields:[createdBy], references:[id], map: "project_memory_entries_created_by_fkey", index: false)
+
+    @@index([projectId], map: "idx_project_memory_entries_project")
+    @@rls
+    @@map("project_memory_entries")
+  }
+
+  // CU12/CU13/CU15 — El chat del equipo con la IA, uno por proyecto.
+  //
+  // author_id NULL es la IA. Si la respuesta trae cambios para el diagrama,
+  // quedan en proposed_actions y su estado en action_status.
+  model ChatMessages {
+    id              Uuid                     @id(map: "chat_messages_pkey") @default(dbgenerated("gen_random_uuid()"))
+    projectId       Uuid                     @map("project_id")
+    // Desde qué diagrama se preguntó: es el que la IA mira en detalle.
+    diagramId       Uuid?                    @map("diagram_id")
+    authorId        Uuid?                    @map("author_id")
+    // En la respuesta de la IA, la pregunta a la que contesta.
+    replyToId       Uuid?                    @map("reply_to")
+    content         String
+    proposedActions Jsonb?                   @map("proposed_actions")
+    actionStatus    pg.enum(ChatActionStatus) @default("NONE") @map("action_status")
+    actionResult    String?                  @map("action_result")
+    resolvedBy      Uuid?                    @map("resolved_by")
+    resolvedAt      TimestamptzString?       @map("resolved_at")
+    // Qué modelo respondió, para poder explicar una respuesta después.
+    model           VarChar(150)?
+    // La IA no pudo responder: content lo explica a la sala y esto guarda el
+    // motivo técnico.
+    errorMessage    String?                  @map("error_message")
+    createdAt       TimestamptzString        @default(now()) @map("created_at")
+    project         Projects                 @relation(fields:[projectId], references:[id], onDelete: Cascade, map: "chat_messages_project_id_fkey", index: false)
+    diagram         Diagrams?                @relation(fields:[diagramId], references:[id], onDelete: SetNull, map: "chat_messages_diagram_id_fkey", index: false)
+    author          Users?                   @relation(name: "chat_messages_author_id_fkey", fields:[authorId], references:[id], map: "chat_messages_author_id_fkey", index: false)
+    resolver        Users?                   @relation(name: "chat_messages_resolved_by_fkey", fields:[resolvedBy], references:[id], map: "chat_messages_resolved_by_fkey", index: false)
+    replyTo         ChatMessages?            @relation(name: "chat_messages_reply_to_fkey", fields:[replyToId], references:[id], onDelete: SetNull, map: "chat_messages_reply_to_fkey", index: false)
+    replies         ChatMessages[]           @relation(name: "chat_messages_reply_to_fkey")
+
+    @@index([projectId, createdAt], map: "idx_chat_messages_project")
+    @@rls
+    @@map("chat_messages")
+  }
+
   native_enum AiInputType {
     VOICE = "VOICE"
     TEXT = "TEXT"
 
     @@map("ai_input_type")
+  }
+
+  // CU11 — De qué variable de entorno sale la llave: GEMINI_API_KEY para
+  // GEMINI y CHAT_LLM_API_KEY, opcional, para cualquier otro servidor
+  // compatible con la API de OpenAI (Ollama, LM Studio...).
+  native_enum AiProvider {
+    GEMINI = "GEMINI"
+    OPENAI_COMPATIBLE = "OPENAI_COMPATIBLE"
+
+    @@map("ai_provider")
+  }
+
+  native_enum AiMode {
+    ANSWER = "ANSWER"
+    PROPOSE = "PROPOSE"
+    EXECUTE = "EXECUTE"
+
+    @@map("ai_mode")
+  }
+
+  native_enum ChatActionStatus {
+    NONE = "NONE"
+    PROPOSED = "PROPOSED"
+    APPLIED = "APPLIED"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
+
+    @@map("chat_action_status")
+  }
+
+  native_enum MemoryKind {
+    DECISION = "DECISION"
+    REQUIREMENT = "REQUIREMENT"
+    SUMMARY = "SUMMARY"
+
+    @@map("memory_kind")
   }
 
   native_enum CodegenStatus {

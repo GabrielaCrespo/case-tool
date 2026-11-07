@@ -44,7 +44,10 @@ export function PropertiesPanel({ onRequestDelete }: { onRequestDelete: () => vo
   return (
     <aside
       aria-label="Panel de propiedades"
-      className="flex w-full shrink-0 flex-col border-l border-ink-200 bg-white lg:w-[300px]"
+      // Ocupa el alto que le deja la columna y no más: con `shrink-0` crecía
+      // hasta el alto de su contenido, la lista de abajo nunca hacía scroll y
+      // su final tapaba la barra de estado en cuanto había relaciones.
+      className="flex min-h-0 w-full flex-1 flex-col border-l border-ink-200 bg-white lg:w-[300px]"
     >
       <header className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-ink-200 px-3">
         <h2 className="truncate text-[13px] font-semibold text-ink-900">{heading}</h2>
