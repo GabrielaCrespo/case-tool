@@ -16,8 +16,11 @@ artificial y generación automática de backend**
 ![Tests](https://img.shields.io/badge/backend_tests-47_passed-success)
 
 > **Estado del proyecto:** los diez casos de uso (CU01–CU10) están implementados y verificados
-> contra el código. La herramienta está desplegada y accesible en
-> **https://case-tool-gabriela.duckdns.org**. No existe pipeline de CI/CD ni archivo de licencia
+> contra el código. La herramienta está desplegada en AWS y accesible en
+> **https://case-tool-gabriela.duckdns.org** ([§18](#18-despliegue)); también se puede ejecutar
+> en local, con PostgreSQL y Traefik en Docker
+> ([§16.2](#162-base-de-datos) y [§16.11](#1611-publicar-en-local-cu08-y-usar-el-teléfono-cu09cu10)).
+> No existe pipeline de CI/CD ni archivo de licencia
 > (ver [Roadmap, pendientes y limitaciones](#21-roadmap-pendientes-y-limitaciones)).
 
 > **Sobre este documento:** fue redactado inspeccionando el repositorio real —`package.json`,
@@ -205,7 +208,7 @@ flowchart TB
     end
 
     subgraph DATOS
-        SUPA[("PostgreSQL — Supabase<br/>modelo UML + auditoría<br/>database/db.sql")]
+        SUPA[("PostgreSQL — base case_tool<br/>modelo UML + auditoría<br/>database/db.sql")]
         PGDEP[("PostgreSQL — contenedor<br/>una base por backend publicado")]
     end
 
@@ -272,7 +275,7 @@ flowchart TB
     end
     subgraph L5["Capa de persistencia"]
         D1["Prisma 8 (contract) · src/prisma/db.ts"]
-        D2["PostgreSQL / Supabase"]
+        D2["PostgreSQL 16"]
         D3["Drift/SQLite local (móvil)"]
     end
     subgraph L6["Capa de transformación"]
@@ -292,7 +295,7 @@ Es la distinción arquitectónica más importante del proyecto:
 |---|---|---|
 | Ubicación | [`backend/`](backend) | Producido por [`generator/`](generator) en tiempo de ejecución |
 | Tecnología | NestJS 12 + TypeScript + Prisma 8 | Spring Boot 3.4 + Java 21 + JPA/Hibernate |
-| Base de datos | PostgreSQL en Supabase (esquema fijo, [`database/db.sql`](database/db.sql)) | PostgreSQL en contenedor, **una base por despliegue**, tablas creadas por Hibernate (`ddl-auto=update`) |
+| Base de datos | PostgreSQL, base `case_tool` (esquema fijo, [`database/db.sql`](database/db.sql)) | PostgreSQL en contenedor, **una base por despliegue**, tablas creadas por Hibernate (`ddl-auto=update`) |
 | Qué modela | Diagramas, clases, atributos, relaciones, usuarios, trabajos | El dominio que el usuario dibujó (CLIENTE, NOTAVENTA, …) |
 | Quién lo consume | El editor web | La app móvil, vía `/api/_meta` |
 | Autenticación | JWT propio | Ninguna |
@@ -390,7 +393,7 @@ Spring Boot Actuator, PostgreSQL, Maven, Docker (multi-stage: `maven:3.9-eclipse
 |---|---|---|
 | Docker + Docker Compose | — | Empaquetado de la herramienta y de cada backend publicado. |
 | Traefik | v3.3 | Proxy inverso, TLS automático (Let's Encrypt), enrutado por `Host` + `PathPrefix`. |
-| PostgreSQL | 16 (contenedor) / Supabase (herramienta) | Persistencia. |
+| PostgreSQL | 16 (contenedor) | Persistencia: la base de la herramienta y las de los backends publicados. |
 | Amazon EC2 | `c7i-flex.large` (2 vCPU, 4 GB) | Instancia de producción, `us-east-1`. |
 
 ---
@@ -823,13 +826,12 @@ flowchart TB
         TR["traefik:v3.3<br/>:80 · :443 · Let's Encrypt"]
         WEBC["case-tool/web<br/>estáticos Vite + nginx"]
         APIC["case-tool/api<br/>NestJS :3000<br/>monta /var/run/docker.sock"]
-        PG[("postgres:16<br/>case-tool-postgres<br/>una base por despliegue")]
+        PG[("postgres:16<br/>case-tool-postgres<br/>case_tool + una base por despliegue")]
         D1["case-backend-slug1<br/>Spring Boot :8080"]
         D2["case-backend-slug2<br/>Spring Boot :8080"]
         VOL[("volúmenes<br/>traefik-certs · postgres-data<br/>generated · maven-cache")]
     end
 
-    SUPA[("Supabase<br/>PostgreSQL de la herramienta")]
     GROQ["Groq API"]
 
     NAV -->|HTTPS| TR
@@ -838,7 +840,7 @@ flowchart TB
     TR --> APIC
     TR --> D1
     TR --> D2
-    APIC --> SUPA
+    APIC --> PG
     APIC --> GROQ
     APIC -.->|docker build/run/exec| D1
     APIC -.-> D2
@@ -1491,7 +1493,7 @@ sequenceDiagram
 | Requisito | Versión | Necesario para |
 |---|---|---|
 | Node.js | 22 | `backend/` y `frontend/` |
-| PostgreSQL | ≥ 15 (16 recomendado) | Base de la herramienta; el proyecto usa Supabase, pero sirve cualquiera |
+| PostgreSQL | ≥ 15 (16 recomendado) | Base de la herramienta; en local, el contenedor de [§16.2](#162-base-de-datos) |
 | Java | 21 | Compilar el generador y compilar/probar lo generado |
 | Maven | 3.9+ | Build del generador |
 | Flutter | SDK Dart ^3.13.3 | Sólo si se va a tocar la app móvil |
@@ -1503,13 +1505,25 @@ sequenceDiagram
 
 ### 16.2 Base de datos
 
-```bash
-# Crear la base y aplicar el esquema
-psql "$DATABASE_URL" -f database/db.sql
+En local, la base es un contenedor de PostgreSQL 16 definido en
+[`deploy/docker-compose.local.yml`](deploy/docker-compose.local.yml), que escucha en
+`127.0.0.1:5434` y aplica `database/db.sql` la primera vez que arranca:
 
-# (opcional) datos de prueba: el diagrama «Sistema de ventas» de la demo
-psql "$DATABASE_URL" -f database/seed-ventas.sql
+```bash
+docker compose -f deploy/docker-compose.local.yml up -d
+
+# La primera vez: activar RLS como pide el contrato y firmar la base.
+# Sin esta firma, cualquier consulta falla con CONTRACT.MARKER_READ_FAILED.
+cd backend && npx prisma db update && npx prisma db verify
+
+# (opcional) datos de prueba: el diagrama «Sistema de ventas» de la demo,
+# a nombre del primer usuario registrado (regístrese antes en el editor)
+docker cp database/seed-ventas.sql case-tool-postgres:/tmp/seed-ventas.sql
+docker exec case-tool-postgres psql -U postgres -d case_tool -f /tmp/seed-ventas.sql
 ```
+
+`DATABASE_URL` queda en `postgresql://postgres:postgres@localhost:5434/case_tool`. Para empezar de
+cero: `docker compose -f deploy/docker-compose.local.yml down -v` y repetir lo anterior.
 
 ### 16.3 Backend de la herramienta
 
@@ -1579,7 +1593,8 @@ Al abrirla se pega la URL de un backend publicado o se escanea el QR del editor.
 | `GENERATED_PACKAGE` | — | Paquete base del backend generado (`com.casetool.generated`). |
 | `GENERATOR_TIMEOUT_MS` | — | Tope por paso (`600000`). |
 | `SMOKE_DB_URL` · `SMOKE_DB_USER` · `SMOKE_DB_PASSWORD` | — | Base **de usar y tirar** para el arranque de humo. Sin ella el paso se salta. |
-| `DEPLOY_DOMAIN` | Para CU08 | Dominio bajo el que responden los backends publicados. |
+| `DEPLOY_DOMAIN` | Para CU08 | Dominio bajo el que responden los backends publicados. En local, la IP del portátil en la Wi-Fi. |
+| `DEPLOY_TLS` | — | `true` por defecto (Let's Encrypt). `false` en local: los backends quedan en `http://<DEPLOY_DOMAIN>/d/<slug>`. |
 | `DEPLOY_NETWORK` | Para CU08 | Red Docker compartida (`case-tool`). |
 | `DEPLOY_DB_HOST` | Para CU08 | **Alias de red**, va en la URL JDBC. |
 | `DEPLOY_DB_CONTAINER` | Para CU08 | **Nombre del contenedor**, lo usa `docker exec`. No es intercambiable con el anterior. |
@@ -1589,9 +1604,10 @@ Al abrirla se pega la URL de un backend publicado o se escanea el QR del editor.
 **`frontend/.env`:** `VITE_API_URL` — URL de la API. Debe figurar en `CORS_ORIGINS` del backend.
 Se incrusta **en tiempo de construcción**: cambiar de dominio obliga a reconstruir la imagen.
 
-**`deploy/.env`** ([plantilla](deploy/.env.example)): `DOMAIN`, `ACME_EMAIL`, `DATABASE_URL`,
+**`deploy/.env`** ([plantilla](deploy/.env.example)): `DOMAIN`, `ACME_EMAIL`,
 `JWT_SECRET`, `JWT_EXPIRES_IN`, `GROQ_API_KEY`, `DEPLOY_DB_USER`, `DEPLOY_DB_PASSWORD`,
-`MAX_DEPLOYMENTS`.
+`MAX_DEPLOYMENTS`. No lleva `DATABASE_URL`: `docker-compose.yml` la arma con `DEPLOY_DB_*`,
+porque la base de la herramienta está en el mismo PostgreSQL de la instancia.
 
 > **Ninguna credencial se escribe en el código ni entra en una imagen de Docker.** En producción,
 > `deploy/.env` se arma en la propia instancia leyendo AWS SSM Parameter Store (`SecureString`).
@@ -1630,6 +1646,31 @@ mvn -f generator/pom.xml package
 # móvil
 cd mobile && flutter analyze && flutter test
 ```
+
+### 16.11 Publicar en local (CU08) y usar el teléfono (CU09/CU10)
+
+El mismo `deploy/docker-compose.local.yml` levanta un Traefik **por HTTP** en el puerto 80, que
+reparte `/d/<slug>` entre los backends publicados igual que en la instancia. Sin dominio no hay
+certificado, así que en `backend/.env`:
+
+```env
+DEPLOY_DOMAIN="192.168.0.25"   # la IP del portátil en la Wi-Fi
+DEPLOY_TLS="false"
+DEPLOY_DB_PASSWORD="postgres"
+```
+
+La IP se consulta con `Get-NetIPAddress -AddressFamily IPv4 -InterfaceAlias Wi-Fi` (PowerShell).
+Si el portátil cambia de red, hay que actualizarla, reiniciar el backend y **volver a publicar**,
+porque la URL y el QR la llevan dentro.
+
+En el teléfono:
+
+- Tiene que estar en la **misma Wi-Fi** que el portátil. Si la red aísla a sus clientes (pasa en
+  muchas redes de universidad), el plan B es conectar el portátil al punto de acceso del propio
+  teléfono y usar la IP que reciba ahí.
+- Android no habla HTTP en claro salvo en el **build de depuración**, que lo permite
+  (`mobile/android/app/src/debug/AndroidManifest.xml`). Se instala con `flutter run` o
+  `flutter build apk --debug`; el APK de release sigue exigiendo HTTPS.
 
 ---
 
@@ -1715,7 +1756,8 @@ marca y se resuelve eligiendo versión en la pantalla de conflictos.
 | Servicio | Imagen | Rol |
 |---|---|---|
 | `traefik` | `traefik:v3.3` | Puertos 80/443, TLS con Let's Encrypt (`httpchallenge`), descubrimiento por etiquetas. `exposedbydefault=false`: nada sale a internet si no lo pide. Monta el socket de Docker **en sólo lectura**. |
-| `postgres` | `postgres:16` | Base **de los backends publicados** (la de la herramienta sigue en Supabase). `container_name: case-tool-postgres` fijo, porque `docker exec` necesita el nombre. Sin `ports`. |
+| `postgres` | `postgres:16` | La base **de la herramienta** (`case_tool`) y las **de los backends publicados** (`d_<slug>`). `container_name: case-tool-postgres` fijo, porque `docker exec` necesita el nombre. Sin `ports`. |
+| `migrate` | `case-tool/api-build` (etapa `build` de `backend/Dockerfile`) | Sólo con `docker compose run --rm migrate`, una vez por base nueva: `prisma db update` (RLS y firma del contrato) y `prisma db verify`. No arranca con `up`. |
 | `api` | `case-tool/api` (build desde la raíz con `backend/Dockerfile`) | El backend NestJS. Monta el **socket de Docker**, el volumen `generated` y la caché de Maven. |
 | `web` | `case-tool/web` (build con `frontend/Dockerfile`) | Los estáticos de Vite. Recibe `VITE_API_URL` como *build arg*. |
 
@@ -1732,7 +1774,13 @@ marca y se resuelve eligiendo versión en la pantalla de conflictos.
 git clone <repositorio> case-tool
 cd case-tool/deploy
 cp .env.example .env
-nano .env                          # dominio, correo, Supabase, JWT, Groq, clave de PostgreSQL
+nano .env                          # dominio, correo, JWT, Groq, clave de PostgreSQL
+
+# la base de la herramienta, sólo la primera vez
+docker compose up -d postgres
+docker exec case-tool-postgres createdb -U postgres case_tool
+docker exec -i case-tool-postgres psql -U postgres -d case_tool -v ON_ERROR_STOP=1 < ../database/db.sql
+docker compose run --rm migrate    # RLS del contrato y firma de la base
 
 docker compose up -d --build
 docker compose logs -f traefik     # hasta ver el certificado emitido
@@ -1746,6 +1794,11 @@ curl  https://<dominio>/api          # el backend
 
 ### 18.3 Despliegue actual del proyecto
 
+> Se montó en septiembre de 2026 con la base de la herramienta en Supabase; ese proyecto se perdió
+> y, al volver a levantar la instancia el 6 de noviembre, la base pasó al PostgreSQL de la propia
+> instancia. La instancia se puede apagar cuando no se usa: ver
+> [`deploy/README.md`](deploy/README.md#apagar-y-encender-la-instancia).
+
 | | |
 |---|---|
 | Dominio | `case-tool-gabriela.duckdns.org` |
@@ -1753,7 +1806,8 @@ curl  https://<dominio>/api          # el backend
 | Instancia | `i-07342b49e34f874c0` · `c7i-flex.large` (2 vCPU, 4 GB) · `us-east-1` |
 | Sistema | Amazon Linux 2023, disco 30 GB |
 | Certificado | Let's Encrypt, renovación automática |
-| Ruta en la instancia | `/opt/case-tool` |
+| Ruta en la instancia | `/opt/case-tool`, clonado de GitHub (se actualiza con `git pull`) |
+| Base de la herramienta | `case_tool`, en el contenedor `case-tool-postgres` de la instancia |
 | Acceso | AWS SSM (`aws ssm start-session --target i-07342b49e34f874c0 …`); el puerto 22 está cerrado |
 | Secretos | AWS SSM Parameter Store, bajo `/case-tool/` como `SecureString` |
 
@@ -2012,7 +2066,7 @@ Parcial.
 efectos prácticos es un proyecto académico privado, sin licencia de distribución. **Pendiente:**
 añadir un `LICENSE` si se va a publicar.
 
-**Servicios de terceros utilizados:** Groq (inferencia), Supabase (PostgreSQL gestionado), Amazon
+**Servicios de terceros utilizados:** Groq (inferencia), Amazon
 Web Services (EC2, SSM Parameter Store), Let's Encrypt (certificados), Hugging Face (descarga del
 modelo Gemma 3 1B en el dispositivo), DuckDNS (subdominio).
 

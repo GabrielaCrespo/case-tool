@@ -4,4 +4,10 @@
          to allow setting breakpoints, to provide hot reload, etc.
     -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- Sólo en depuración: hablar por HTTP con un backend publicado en un
+         portátil de la misma Wi-Fi (deploy/docker-compose.local.yml), donde no
+         hay dominio ni certificado. La versión de release sigue exigiendo
+         HTTPS. -->
+    <application android:usesCleartextTraffic="true"/>
 </manifest>

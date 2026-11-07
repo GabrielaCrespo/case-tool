@@ -1,9 +1,10 @@
 # Poner la herramienta en línea
 
 Lo que hay aquí levanta la herramienta CASE en una sola instancia EC2: el
-editor, su backend, un Traefik que resuelve el TLS, y un PostgreSQL que **no**
-es el de la herramienta —el suyo sigue en Supabase— sino el de los backends que
-la herramienta genera y publica.
+editor, su backend, un Traefik que resuelve el TLS, y un PostgreSQL que guarda
+la base de la propia herramienta (`case_tool`) y las de los backends que la
+herramienta genera y publica. Hasta noviembre de 2026 la base de la herramienta
+estaba en Supabase; ese proyecto se perdió y desde entonces vive aquí.
 
 Publicar no es un caso de uso. La numeración sigue siendo CU01–CU10; esto es
 una operación de la herramienta y se documenta como tal.
@@ -63,12 +64,29 @@ Hay que salir y volver a entrar para que el grupo `docker` tenga efecto.
 git clone <el repositorio> case-tool
 cd case-tool/deploy
 cp .env.example .env
-nano .env        # dominio, correo, Supabase, JWT, Groq y la clave de PostgreSQL
+nano .env        # dominio, correo, JWT, Groq y la clave de PostgreSQL
 ```
 
 Ese `.env` lleva credenciales de verdad y no se versiona.
 
-### 3. Levantarlo
+### 3. Crear la base de la herramienta
+
+Sólo la primera vez, o después de un `docker compose down -v`:
+
+```bash
+docker compose up -d postgres
+docker exec case-tool-postgres createdb -U postgres case_tool
+docker exec -i case-tool-postgres psql -U postgres -d case_tool -v ON_ERROR_STOP=1 \
+  < ../database/db.sql
+docker compose run --rm migrate   # RLS del contrato y firma de la base
+```
+
+El orden importa: `db.sql` crea las tablas y los triggers, y `migrate` añade lo
+que el contrato de Prisma tiene y `db.sql` no —la RLS— y firma la base. Sin esa
+firma el backend arranca, pero cada consulta falla con
+`CONTRACT.MARKER_READ_FAILED`.
+
+### 4. Levantarlo
 
 ```bash
 docker compose up -d --build
@@ -78,7 +96,7 @@ docker compose logs -f traefik    # hasta ver el certificado emitido
 La primera construcción tarda: la imagen del backend compila el generador Java
 con Maven. Las siguientes reutilizan las capas.
 
-### 4. Comprobar
+### 5. Comprobar
 
 ```bash
 curl -I https://<dominio>            # el editor
@@ -122,9 +140,32 @@ no se puede es esconderlo.
 Traefik también monta el socket, pero **sólo lectura**: necesita mirar qué
 contenedores hay y con qué etiquetas, no crear ninguno.
 
+## Lo que cuesta compartir el PostgreSQL
+
+Desde que la base de la herramienta vive en el mismo PostgreSQL que las de los
+backends publicados, conviene tener presentes dos cosas:
+
+- **Cada backend publicado recibe las credenciales del superusuario**
+  (`DEPLOY_DB_USER`), y un superusuario entra en cualquier base, también en
+  `case_tool`, con sus usuarios y sus contraseñas cifradas. Mientras los
+  backends publicados sean sólo los que genera la herramienta, eso no se usa;
+  pero si uno de ellos tuviera un fallo explotable desde internet, el alcance
+  ya no sería sólo su propia base. Se resolvería dándole a cada despliegue un
+  rol propio, sin privilegios, dueño sólo de su base.
+- **Los datos están sólo en el disco de la instancia.** No hay copias
+  automáticas como las había en Supabase. Una instantánea del volumen antes de
+  cualquier cambio arriesgado basta:
+
+  ```bash
+  aws ec2 create-snapshot --volume-id vol-0042e56ddb1cfb5a6 \
+    --description "case-tool antes de ..." --profile case-tool --region us-east-1
+  ```
+
 ## El despliegue de este proyecto
 
-Ya está montado y funcionando:
+Se montó en septiembre de 2026, estuvo apagado desde el 30 de ese mes y se
+volvió a levantar el 6 de noviembre, ya con la base de la herramienta en la
+instancia:
 
 | | |
 |---|---|
@@ -132,7 +173,7 @@ Ya está montado y funcionando:
 | IP elástica | `3.226.42.207` |
 | Instancia | `i-07342b49e34f874c0`, `c7i-flex.large` (2 vCPU, 4 GB), us-east-1 |
 | Certificado | Let's Encrypt, se renueva solo |
-| El proyecto vive en | `/opt/case-tool` |
+| El proyecto vive en | `/opt/case-tool`, clonado de GitHub |
 
 La instancia es una `c7i-flex.large` y no la `t3.medium` del plan porque la cuenta está en el
 plan gratuito de AWS, que rechaza los tipos que no son elegibles. Tiene las mismas 2 vCPU y los
@@ -151,10 +192,12 @@ como `SecureString`:
 
 | Parámetro | Qué es |
 |---|---|
-| `/case-tool/DATABASE_URL` | La base de la herramienta, en Supabase |
 | `/case-tool/JWT_SECRET` | Con qué se firman los tokens del servidor |
 | `/case-tool/GROQ_API_KEY` | CU04 y CU05 |
-| `/case-tool/DEPLOY_DB_PASSWORD` | El PostgreSQL de los backends publicados |
+| `/case-tool/DEPLOY_DB_PASSWORD` | El PostgreSQL de la instancia: la base de la herramienta y las de los backends publicados |
+
+`/case-tool/DATABASE_URL` ya no se usa: era la cadena de Supabase, y ahora
+`docker-compose.yml` arma la de la herramienta a partir de `DEPLOY_DB_*`.
 
 El rol de la instancia (`case-tool-ec2`) sólo puede leer los parámetros bajo `/case-tool/`.
 Para cambiar uno:
@@ -173,6 +216,22 @@ backend, el editor, Traefik y PostgreSQL. Cada backend publicado ocupa entre
 250 y 400 MB, de ahí que `MAX_DEPLOYMENTS` valga 3 por defecto. Subirlo es
 posible, pero lo que pasa cuando no queda memoria es que el núcleo mata
 procesos, y no avisa antes.
+
+## Apagar y encender la instancia
+
+La cuenta está en el plan gratuito de AWS, que funciona con crédito: encendida,
+la instancia gasta unos 0,085 USD por hora (unos 61 al mes si no se apaga
+nunca), y cuando el crédito se acaba AWS cierra la cuenta si no se ha pasado a
+un plan de pago. Apagada sólo cuestan el disco y la IP, unos 6 USD al mes.
+
+```bash
+aws ec2 stop-instances  --instance-ids i-07342b49e34f874c0 --profile case-tool --region us-east-1
+aws ec2 start-instances --instance-ids i-07342b49e34f874c0 --profile case-tool --region us-east-1
+```
+
+Al encenderla no hay que hacer nada más: todos los servicios, y también los
+backends publicados, tienen `restart: unless-stopped` y vuelven solos. La IP
+elástica sigue siendo la misma, así que el dominio no cambia.
 
 ## Volver a desplegar después de cambiar el código
 

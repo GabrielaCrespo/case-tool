@@ -70,6 +70,17 @@ export class DeploymentsService {
   /** El dominio bajo el que responden los backends publicados. */
   private readonly domain = process.env.DEPLOY_DOMAIN ?? '';
 
+  /**
+   * Si Traefik les pone certificado. En la instancia, siempre: Android no
+   * habla con un backend en claro. En local no hay dominio al que Let's
+   * Encrypt pueda certificar —`DEPLOY_DOMAIN` es la IP del portátil en la
+   * Wi-Fi—, así que se publica por HTTP y es la aplicación de depuración la
+   * que lo admite.
+   */
+  private readonly tls = process.env.DEPLOY_TLS !== 'false';
+
+  private readonly origin = `${this.tls ? 'https' : 'http'}://${this.domain}`;
+
   /** La red de Docker donde está Traefik; la crea deploy/docker-compose.yml. */
   private readonly network = process.env.DEPLOY_NETWORK ?? 'case-tool';
 
@@ -243,7 +254,7 @@ export class DeploymentsService {
     const image = `case-tool/${slug}:${jobId}`;
     const container = `case-backend-${slug}`;
     const database = this.databaseName(slug);
-    const url = `https://${this.domain}/d/${slug}`;
+    const url = `${this.origin}/d/${slug}`;
 
     try {
       await this.save(deploymentId, {
@@ -322,15 +333,16 @@ export class DeploymentsService {
       // El editor llama a estos backends desde el navegador, y la aplicación
       // móvil desde fuera del navegador, donde no hay CORS que valga.
       '-e',
-      `CORS_ORIGINS=https://${this.domain}`,
+      `CORS_ORIGINS=${this.origin}`,
       '-l',
       'traefik.enable=true',
       '-l',
       `traefik.http.routers.${slug}.rule=Host(\`${this.domain}\`) && PathPrefix(\`/d/${slug}\`)`,
       '-l',
-      `traefik.http.routers.${slug}.entrypoints=websecure`,
-      '-l',
-      `traefik.http.routers.${slug}.tls.certresolver=le`,
+      `traefik.http.routers.${slug}.entrypoints=${this.tls ? 'websecure' : 'web'}`,
+      // Sin TLS no hay certificado que pedir, y un router con certresolver
+      // sólo atiende peticiones cifradas: no contestaría nunca por HTTP.
+      ...(this.tls ? ['-l', `traefik.http.routers.${slug}.tls.certresolver=le`] : []),
       '-l',
       `traefik.http.services.${slug}.loadbalancer.server.port=8080`,
       image,

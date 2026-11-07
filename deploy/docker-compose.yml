@@ -1,9 +1,9 @@
 # La herramienta CASE en marcha, en una sola instancia.
 #
 # Cuatro servicios: Traefik, que resuelve el TLS y reparte por dominio y por
-# ruta; el editor React; el backend NestJS; y un PostgreSQL que NO es el de la
-# herramienta —el suyo sigue en Supabase— sino el de los backends que la
-# herramienta genera y publica.
+# ruta; el editor React; el backend NestJS; y un PostgreSQL que guarda tanto la
+# base de la propia herramienta (`case_tool`, que antes estaba en Supabase) como
+# las de los backends que la herramienta genera y publica.
 #
 # Los backends publicados no están aquí. Los crea el backend en tiempo de
 # ejecución, uno por diagrama, y se enganchan a esta misma red con sus propias
@@ -75,8 +75,10 @@ services:
     environment:
       POSTGRES_USER: ${DEPLOY_DB_USER}
       POSTGRES_PASSWORD: ${DEPLOY_DB_PASSWORD}
-      # Una base por backend publicado, creadas al publicar. Ésta es sólo la
-      # que PostgreSQL necesita para arrancar.
+      # Ésta es sólo la que PostgreSQL necesita para arrancar, y la del arranque
+      # de humo de CU07. La de la herramienta, `case_tool`, se crea una vez a
+      # mano (lo explica el README de esta carpeta), y las de los backends
+      # publicados, `d_<slug>`, las crea el backend al publicar.
       POSTGRES_DB: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -101,8 +103,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # La base de la propia herramienta, que está en Supabase.
-      DATABASE_URL: ${DATABASE_URL}
+      # La base de la propia herramienta, en el PostgreSQL de aquí al lado.
+      DATABASE_URL: postgresql://${DEPLOY_DB_USER}:${DEPLOY_DB_PASSWORD}@postgres:5432/case_tool
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       CORS_ORIGINS: https://${DOMAIN}
@@ -147,6 +149,31 @@ services:
       traefik.http.routers.api.middlewares: api-strip
       traefik.http.middlewares.api-strip.stripprefix.prefixes: /api
       traefik.http.services.api.loadbalancer.server.port: "3000"
+
+  # Una sola vez, con la base de la herramienta recién creada y db.sql ya
+  # aplicado: activa la RLS que pide el contrato y firma la base. Sin esa firma,
+  # toda consulta falla con CONTRACT.MARKER_READ_FAILED. No arranca con `up`;
+  # se corre a mano:
+  #
+  #     docker compose run --rm migrate
+  #
+  # Usa la etapa de construcción de la imagen del backend porque es la que tiene
+  # el contrato y prisma.config.ts; la imagen final sólo lleva dist/.
+  migrate:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+      target: build
+    image: case-tool/api-build
+    profiles: [migrate]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${DEPLOY_DB_USER}:${DEPLOY_DB_PASSWORD}@postgres:5432/case_tool
+    networks:
+      - case-tool
+    command: ["sh", "-c", "npx prisma db update && npx prisma db verify"]
 
   web:
     build:
