@@ -10,6 +10,7 @@ import {
   isPrimaryKeyName,
 } from '../diagrams/uml-catalog.js';
 import { isMultiplicity } from '../diagrams/validation.js';
+import { normalizeActionNames } from './identifiers.js';
 import { besidePosition, freePosition } from './layout.js';
 import type { Placed } from './layout.js';
 import { RELATIONSHIP_LABELS, fold, normalizeDataType } from './uml-actions.js';
@@ -308,9 +309,10 @@ export class AiExecutorService {
     const draft = new DiagramDraft(diagram);
     const steps: PlannedStep[] = [];
     const rejections: string[] = [];
-    const warnings: string[] = [];
+    const normalized = normalizeActionNames(actions);
+    const warnings: string[] = [...normalized.warnings];
 
-    for (const action of actions) {
+    for (const action of normalized.actions) {
       this.planOne(action, draft, steps, rejections, warnings, unknownType);
     }
 
