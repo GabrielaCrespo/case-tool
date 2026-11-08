@@ -161,6 +161,7 @@ export function TeamChatPanel({ onClose }: { onClose: () => void }) {
                 key={message.id}
                 message={message}
                 mine={message.author !== null && message.author.id === me?.id}
+                repliesTo={replyTarget(message, messages, me?.id)}
                 waiting={pending.has(message.id) ? (answering === message.id ? 'thinking' : 'queued') : null}
               />
             ))}
@@ -448,13 +449,31 @@ function InlineMarks({ text }: { text: string }) {
   })
 }
 
+/**
+ * A quién responde un mensaje de la IA: en un chat de grupo, cada respuesta
+ * tiene que verse dirigida a quien preguntó. null si no es de la IA o si la
+ * pregunta ya no está cargada.
+ */
+function replyTarget(
+  message: ChatMessage,
+  messages: ChatMessage[],
+  myId: string | undefined,
+): string | null {
+  if (message.author !== null || message.reply_to === null) return null
+  const question = messages.find((candidate) => candidate.id === message.reply_to)
+  if (!question?.author) return null
+  return question.author.id === myId ? 'usted' : question.author.full_name
+}
+
 function MessageItem({
   message,
   mine,
+  repliesTo,
   waiting,
 }: {
   message: ChatMessage
   mine: boolean
+  repliesTo: string | null
   waiting: 'thinking' | 'queued' | null
 }) {
   const fromAi = message.author === null
@@ -483,6 +502,7 @@ function MessageItem({
             {who}
           </span>
           {!fromAi && message.diagram_name && <span>en «{message.diagram_name}»</span>}
+          {fromAi && repliesTo && <span>responde a {repliesTo}</span>}
           <time dateTime={message.created_at} title={new Date(message.created_at).toLocaleString('es')}>
             {formatRelative(message.created_at)}
           </time>
