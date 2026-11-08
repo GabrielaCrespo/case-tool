@@ -21,7 +21,7 @@ import type { AiMode } from '../projects/projects.service.js';
 import { connectionOf } from './ai-settings.service.js';
 import { AiSettingsService } from './ai-settings.service.js';
 import type { ChatContext, ContextMessage } from './assistant-context.js';
-import { buildChatContext, readReply, RECENT_MESSAGES } from './assistant-context.js';
+import { addressAsker, buildChatContext, readReply, RECENT_MESSAGES } from './assistant-context.js';
 import { ChatLlmClient } from './chat-llm-client.js';
 import { ProjectQueue } from './project-queue.js';
 import type { StoredProposal } from './proposal.js';
@@ -278,7 +278,8 @@ export class AssistantService {
         diagramId: question.diagramId,
         authorId: null,
         replyToId: question.id,
-        content: reply,
+        // En el chat del grupo cada respuesta tiene un destinatario.
+        content: addressAsker(reply, question.author?.fullName ?? null),
         model: completion.model.slice(0, MODEL_MAX_LENGTH) as Varchar<typeof MODEL_MAX_LENGTH>,
         proposedActions: outcome.proposal === null ? null : toJson(outcome.proposal),
         actionStatus: outcome.status,
@@ -299,7 +300,7 @@ export class AssistantService {
         diagramId: question.diagramId,
         authorId: null,
         replyToId: question.id,
-        content: `No pude responder: ${reason}`,
+        content: addressAsker(`No pude responder: ${reason}`, question.author?.fullName ?? null),
         errorMessage: reason,
       });
       await this.publishMessage(saved.id);
@@ -556,12 +557,20 @@ export class AssistantService {
       .orderBy((message) => message.createdAt.desc())
       .limit(RECENT_MESSAGES * 2)
       .all()) as MessageRow[];
+    // A quién le respondió la IA en cada mensaje, para que no mezcle los hilos
+    // de cada integrante. La pregunta suele estar en la misma ventana; si no,
+    // queda sin destinatario, igual que antes.
+    const askers = new Map(earlier.map((message) => [message.id, message.author?.fullName ?? null]));
     const recent: ContextMessage[] = earlier
       .filter((message) => message.errorMessage === null)
       .slice(0, RECENT_MESSAGES)
       .reverse()
       .map((message) => ({
         author: message.author?.fullName ?? null,
+        inReplyTo:
+          message.author === null && message.replyToId !== null
+            ? (askers.get(message.replyToId) ?? null)
+            : null,
         diagramName: message.diagram?.name ?? null,
         // Que el modelo sepa qué pasó con lo que propuso antes.
         content: `${message.content}${STATUS_NOTES[message.actionStatus]}`,

@@ -44,6 +44,38 @@ export interface ContextMessage {
   author: string | null;
   diagramName: string | null;
   content: string;
+  /** En un mensaje de la IA, a quién le respondía; null si no se sabe. */
+  inReplyTo?: string | null;
+}
+
+/** El nombre de pila: con él se dirige la IA a cada integrante. */
+export function firstNameOf(fullName: string): string {
+  return fullName.trim().split(/\s+/)[0] ?? fullName;
+}
+
+function fold(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * La respuesta, dirigida a quien preguntó.
+ *
+ * Las instrucciones ya le piden al modelo que empiece nombrando a quien le
+ * escribe, pero un modelo no siempre obedece. En un chat de grupo una
+ * respuesta sin destinatario no se sabe para quién es, así que si el nombre no
+ * aparece se antepone aquí. Si ya lo nombra, la respuesta no se toca.
+ */
+export function addressAsker(reply: string, askerFullName: string | null): string {
+  if (askerFullName === null || askerFullName.trim() === '') return reply;
+
+  const firstName = firstNameOf(askerFullName);
+  const pattern = new RegExp(`(^|[^\\p{L}])${fold(firstName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^\\p{L}])`, 'u');
+  if (pattern.test(fold(reply))) return reply;
+
+  return `${firstName}: ${reply}`;
 }
 
 export interface ChatContextInput {
@@ -142,6 +174,11 @@ export function chatInstructions(projectName: string, mode: AiMode = 'ANSWER', h
     '',
     'Cómo responder:',
     '- Responde en español, de forma concreta y breve, a la pregunta de quien te escribe.',
+    '- Diriges cada respuesta a una persona concreta: la que firma la sección «Pregunta». Empieza ' +
+      'nombrándola por su nombre de pila («Beto, …») y háblale a ella en singular, de tú; no respondas ' +
+      'en plural ni al grupo en general. Si su pregunta menciona a otra persona del equipo o algo que ' +
+      'dijo, nómbrala también. En «Conversación reciente» verás a quién le respondiste cada vez: úsalo ' +
+      'para no mezclar lo que preguntó cada uno.',
     '- Básate en el contexto del proyecto que viene a continuación: memoria, descripción y diagramas. ' +
       'Nombra las clases, los atributos y las relaciones con su nombre exacto.',
     '- No des respuestas genéricas de manual: si la pregunta es general, aplícala a este diseño. ' +
@@ -372,7 +409,9 @@ function renderUserMessage(
   const conversation = state.messages.map((message) => {
     const who =
       message.author === null
-        ? 'IA'
+        ? message.inReplyTo
+          ? `IA, a ${message.inReplyTo}`
+          : 'IA'
         : `${message.author}${message.diagramName ? `, en «${message.diagramName}»` : ''}`;
     const text =
       message.content.length > RECENT_MESSAGE_MAX_CHARS
