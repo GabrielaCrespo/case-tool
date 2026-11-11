@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { isPersistent } from '../diagrams/diagram-validator.js';
 import type { FullDiagramResponse } from '../diagrams/diagrams.service.js';
 import { PRIMARY_KEY, isPrimaryKeyName } from '../diagrams/uml-catalog.js';
-import { escapeXml, toXmiId } from './xmi-format.js';
+import { escapeXml, toBounds, toXmiId } from './xmi-format.js';
 
 /**
  * CU06 — Del diagrama guardado a un archivo XMI que Enterprise Architect abra.
@@ -452,6 +452,10 @@ function columnsOf(umlClass: UmlClass): UmlClass['attributes'] {
     is_nullable: false,
     is_unique: true,
     default_value: null,
+    is_static: false,
+    is_derived: false,
+    is_read_only: false,
+    multiplicity: null,
     order_index: 0,
     created_at: umlClass.created_at,
     updated_at: umlClass.updated_at,
@@ -505,11 +509,16 @@ function classElement(umlClass: UmlClass, context: Context): string[] {
     for (const [index, attribute] of attributes.entries()) {
       const typeId =
         attribute.data_type === null ? UNTYPED_ID : context.typeIds.get(attribute.data_type)!;
+      // [1..1] salvo que el atributo sea una colección con su multiplicidad
+      // declarada («telefonos : String [0..*]»): es la única que EA debe dibujar.
+      const bounds = toBounds(attribute.multiplicity) ?? { lower: '1', upper: '1' };
 
       lines.push(
         line(
           8,
-          `<UML:Attribute name="${escapeXml(attribute.name)}" changeable="none" visibility="${attribute.visibility}" ownerScope="instance" targetScope="instance">`,
+          // UML 1.3 escribe «estático» como ownerScope="classifier» y «sólo
+          // lectura» como changeable="frozen"; lo demás sale como lo pone EA.
+          `<UML:Attribute name="${escapeXml(attribute.name)}" changeable="${attribute.is_read_only ? 'frozen' : 'none'}" visibility="${attribute.visibility}" ownerScope="${attribute.is_static ? 'classifier' : 'instance'}" targetScope="instance">`,
         ),
       );
       lines.push(line(9, '<UML:Attribute.initialValue>'));
@@ -530,8 +539,9 @@ function classElement(umlClass: UmlClass, context: Context): string[] {
       if (attribute.data_type !== null) lines.push(tag(10, 'type', attribute.data_type));
       lines.push(tag(10, 'containment', 'Not Specified'));
       lines.push(tag(10, 'ordered', '0'));
-      lines.push(tag(10, 'static', '0'));
-      lines.push(tag(10, 'collection', 'false'));
+      lines.push(tag(10, 'static', attribute.is_static ? '1' : '0'));
+      if (attribute.is_derived) lines.push(tag(10, 'derived', '1'));
+      lines.push(tag(10, 'collection', bounds.upper === '1' ? 'false' : 'true'));
       lines.push(tag(10, 'position', String(attribute.order_index)));
       /*
        * Los límites son siempre 1 y 1, como en los archivos de EA, y no se
@@ -542,8 +552,8 @@ function classElement(umlClass: UmlClass, context: Context): string[] {
        * etiquetas, así que el «admite nulos» no viajaba en el archivo de todos
        * modos.
        */
-      lines.push(tag(10, 'lowerBound', '1'));
-      lines.push(tag(10, 'upperBound', '1'));
+      lines.push(tag(10, 'lowerBound', bounds.lower));
+      lines.push(tag(10, 'upperBound', bounds.upper));
       lines.push(tag(10, 'duplicates', '0'));
       lines.push(tag(10, 'ea_guid', eaGuid(attribute.id)));
       lines.push(tag(10, 'ea_localid', String(index + 1)));
@@ -556,7 +566,7 @@ function classElement(umlClass: UmlClass, context: Context): string[] {
       lines.push(
         line(
           8,
-          `<UML:Operation name="${escapeXml(method.name)}" visibility="${method.visibility}" ownerScope="instance" isQuery="false" concurrency="sequential">`,
+          `<UML:Operation name="${escapeXml(method.name)}" visibility="${method.visibility}" ownerScope="${method.is_static ? 'classifier' : 'instance'}" isQuery="false" concurrency="sequential"${method.is_abstract ? ' isAbstract="true"' : ''}>`,
         ),
       );
       lines.push(line(9, '<UML:ModelElement.taggedValue>'));
@@ -564,6 +574,8 @@ function classElement(umlClass: UmlClass, context: Context): string[] {
       lines.push(tag(10, 'const', 'false'));
       lines.push(tag(10, 'synchronised', '0'));
       lines.push(tag(10, 'concurrency', 'Sequential'));
+      if (method.is_static) lines.push(tag(10, 'static', '1'));
+      if (method.is_abstract) lines.push(tag(10, 'abstract', '1'));
       lines.push(tag(10, 'position', String(method.order_index)));
       lines.push(tag(10, 'pure', '0'));
       lines.push(tag(10, 'ea_guid', eaGuid(method.id)));

@@ -11,7 +11,9 @@ import {
   LIMITS,
   VISIBILITY_OPTIONS,
   attributeNameProblem,
+  attributeSuffix,
   isDefaultValueCompatible,
+  isValidMultiplicity,
   visibilitySymbol,
 } from '../uml'
 import { CommitInput } from './CommitInput'
@@ -73,7 +75,10 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
           />
           <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-800">
             <span className="text-ink-500">{visibilitySymbol(attribute.visibility)} </span>
-            {attribute.name}
+            {attribute.is_derived && '/'}
+            <span className={cn(attribute.is_static && 'underline underline-offset-2')}>
+              {attribute.name}
+            </span>
             {/* Sin tipo no se escribe el «:»: enseñar «nombre: null» haría
                 creer que el tipo es un valor raro en vez de estar por decidir. */}
             {attribute.data_type !== null && (
@@ -82,6 +87,7 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
                 <span className="text-ink-600">{attribute.data_type}</span>
               </>
             )}
+            <span className="text-ink-500">{attributeSuffix(attribute)}</span>
           </span>
         </button>
 
@@ -190,6 +196,53 @@ export function AttributeRow({ attribute, index, total, siblingNames }: Attribut
               checked={attribute.is_nullable}
               onChange={(event) =>
                 void updateAttribute(attribute.id, { is_nullable: event.target.checked })
+              }
+            />
+          </div>
+
+          {/* Notación UML 2.5 de la propiedad. Cambia cómo se dibuja y viaja en
+              el XMI; el generador de código sigue tratando el atributo como
+              una columna. */}
+          <div className="flex flex-col gap-1.5 border-t border-ink-200 pt-2">
+            <span className="text-[10.5px] font-semibold tracking-wider text-ink-500 uppercase">
+              Notación UML
+            </span>
+            <PanelField label="Multiplicidad">
+              <CommitInput
+                value={attribute.multiplicity ?? ''}
+                ariaLabel="Multiplicidad del atributo"
+                mono
+                placeholder="1 (no se escribe)"
+                maxLength={10}
+                validate={(value) =>
+                  isValidMultiplicity(value)
+                    ? null
+                    : 'Ejemplos: 0..1, 0..*, 1..*, 2..5, *.'
+                }
+                onCommit={(value) =>
+                  void updateAttribute(attribute.id, { multiplicity: value || null })
+                }
+              />
+            </PanelField>
+            <Checkbox
+              label="Estático (subrayado)"
+              checked={attribute.is_static}
+              onChange={(event) =>
+                void updateAttribute(attribute.id, { is_static: event.target.checked })
+              }
+            />
+            <Checkbox
+              label="Derivado ( / )"
+              checked={attribute.is_derived}
+              onChange={(event) =>
+                void updateAttribute(attribute.id, { is_derived: event.target.checked })
+              }
+            />
+            <Checkbox
+              label="Sólo lectura {readOnly}"
+              checked={attribute.is_read_only}
+              onChange={(event) =>
+                void updateAttribute(attribute.id, { is_read_only: event.target.checked })
               }
             />
           </div>

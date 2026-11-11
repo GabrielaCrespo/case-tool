@@ -10,6 +10,7 @@ import {
   LIMITS,
   PRIMARY_KEY,
   attributeNameProblem,
+  attributeSuffix,
   identifierProblem,
   isPersistent,
   isPrimaryKeyName,
@@ -196,6 +197,7 @@ export function UmlClassNode({ id, data, selected }: NodeProps<UmlClassNodeType>
                 <AttributeLine
                   key={attribute.id}
                   attribute={attribute}
+                  literal={umlClass.stereotype === 'enumeration'}
                   siblings={umlClass.attributes}
                   editable={editable}
                   renaming={renaming?.kind === 'attribute' && renaming.id === attribute.id}
@@ -244,7 +246,18 @@ export function UmlClassNode({ id, data, selected }: NodeProps<UmlClassNodeType>
             {umlClass.methods.map((method) => (
               <li
                 key={method.id}
-                className="truncate px-1 py-[1px] pl-[25px] font-mono text-[11.5px] leading-[1.45] text-ink-800"
+                title={
+                  [method.is_static && 'Estático', method.is_abstract && 'Abstracto']
+                    .filter(Boolean)
+                    .join(' · ') || undefined
+                }
+                className={cn(
+                  'truncate px-1 py-[1px] pl-[25px] font-mono text-[11.5px] leading-[1.45] text-ink-800',
+                  // UML 2.5: una operación estática va subrayada y una
+                  // abstracta, en cursiva.
+                  method.is_static && 'underline decoration-ink-500 underline-offset-2',
+                  method.is_abstract && 'italic',
+                )}
               >
                 <span className="text-ink-500">{visibilitySymbol(method.visibility)} </span>
                 {method.name}(
@@ -292,6 +305,11 @@ function PrimaryKeyLine() {
 
 interface AttributeLineProps {
   attribute: UmlAttribute
+  /**
+   * La clase es una «enumeration»: sus atributos son literales y UML los
+   * escribe solos, sin visibilidad ni tipo.
+   */
+  literal: boolean
   /** Los de la misma entidad: uml_attributes tiene UNIQUE (class_id, name). */
   siblings: UmlAttribute[]
   editable: boolean
@@ -304,6 +322,7 @@ interface AttributeLineProps {
 /** Un atributo tal como se lee en el diagrama: «＋ nombre : String». */
 function AttributeLine({
   attribute,
+  literal,
   siblings,
   editable,
   renaming,
@@ -369,20 +388,35 @@ function AttributeLine({
           className={cn(
             'min-w-0 flex-1 truncate',
             ignored ? 'text-ink-400 line-through decoration-ink-300' : 'text-ink-800',
+            // UML 2.5: un atributo estático va subrayado.
+            !ignored &&
+              attribute.is_static &&
+              'underline decoration-ink-500 underline-offset-2',
           )}
         >
-          <span className="text-ink-500">{visibilitySymbol(attribute.visibility)} </span>
-          {attribute.name}
-          {/* Un atributo aún sin tipo se dibuja a secas, como está en la
-              pizarra de la que salió: escribir «: null» sería afirmar algo que
-              nadie decidió todavía. */}
-          {attribute.data_type !== null && (
+          {literal ? (
+            attribute.name
+          ) : (
             <>
-              <span className="text-ink-400">: </span>
-              <span className="text-ink-600">{attribute.data_type}</span>
+              <span className="text-ink-500">{visibilitySymbol(attribute.visibility)} </span>
+              {/* UML 2.5: «/» delante del nombre de un atributo derivado. */}
+              {attribute.is_derived && <span className="text-ink-600">/</span>}
+              {attribute.name}
+              {/* Un atributo aún sin tipo se dibuja a secas, como está en la
+                  pizarra de la que salió: escribir «: null» sería afirmar algo
+                  que nadie decidió todavía. */}
+              {attribute.data_type !== null && (
+                <>
+                  <span className="text-ink-400">: </span>
+                  <span className="text-ink-600">{attribute.data_type}</span>
+                </>
+              )}
+              {attributeSuffix(attribute) !== '' && (
+                <span className="text-ink-500">{attributeSuffix(attribute)}</span>
+              )}
+              {!attribute.is_nullable && <span className="text-danger-600"> *</span>}
             </>
           )}
-          {!attribute.is_nullable && <span className="text-danger-600"> *</span>}
         </span>
       )}
     </li>

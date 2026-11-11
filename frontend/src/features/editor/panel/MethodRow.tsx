@@ -8,6 +8,7 @@ import {
   TrashIcon,
 } from '../../../components/icons'
 import { Button, IconButton } from '../../../components/ui/Button'
+import { Checkbox } from '../../../components/ui/Field'
 import { cn } from '../../../lib/cn'
 import { useDiagramStore } from '../../../store/diagram'
 import {
@@ -78,7 +79,13 @@ export function MethodRow({ method, index, total }: MethodRowProps) {
               !open && '-rotate-90',
             )}
           />
-          <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-800">
+          <span
+            className={cn(
+              'min-w-0 flex-1 truncate font-mono text-[12px] text-ink-800',
+              method.is_static && 'underline underline-offset-2',
+              method.is_abstract && 'italic',
+            )}
+          >
             <span className="text-ink-500">{visibilitySymbol(method.visibility)} </span>
             {method.name}({preview})<span className="text-ink-400">: </span>
             <span className="text-ink-600">{method.return_type}</span>
@@ -147,6 +154,24 @@ export function MethodRow({ method, index, total }: MethodRowProps) {
                 onChange={(value) => void updateMethod(method.id, { return_type: value })}
               />
             </PanelField>
+          </div>
+
+          {/* Notación UML 2.5 de la operación. */}
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+            <Checkbox
+              label="Estático (subrayado)"
+              checked={method.is_static}
+              onChange={(event) =>
+                void updateMethod(method.id, { is_static: event.target.checked })
+              }
+            />
+            <Checkbox
+              label="Abstracto (cursiva)"
+              checked={method.is_abstract}
+              onChange={(event) =>
+                void updateMethod(method.id, { is_abstract: event.target.checked })
+              }
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

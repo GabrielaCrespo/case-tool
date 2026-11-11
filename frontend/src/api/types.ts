@@ -205,6 +205,14 @@ export interface UmlAttribute {
   is_nullable: boolean
   is_unique: boolean
   default_value: string | null
+  /** UML 2.5: miembro de la clase, no de cada objeto. Se dibuja subrayado. */
+  is_static: boolean
+  /** UML 2.5: se calcula a partir de otros. Se dibuja con «/» delante. */
+  is_derived: boolean
+  /** UML 2.5: no cambia una vez asignado. Se dibuja con {readOnly}. */
+  is_read_only: boolean
+  /** UML 2.5: «[0..*]» tras el tipo. null = [1], que no se escribe. */
+  multiplicity: string | null
   order_index: number
   created_at: string
   updated_at: string
@@ -218,6 +226,11 @@ export interface AttributeInput {
   is_nullable?: boolean
   is_unique?: boolean
   default_value?: string | null
+  is_static?: boolean
+  is_derived?: boolean
+  is_read_only?: boolean
+  /** null quita la multiplicidad y vuelve a [1]. */
+  multiplicity?: string | null
   order_index?: number
 }
 
@@ -244,6 +257,10 @@ export interface UmlMethod {
   name: string
   return_type: string
   visibility: Visibility
+  /** UML 2.5: operación de la clase. Se dibuja subrayada. */
+  is_static: boolean
+  /** UML 2.5: sin implementación. Se dibuja en cursiva. */
+  is_abstract: boolean
   order_index: number
   created_at: string
   /** Los parámetros viajan siempre con el método: son parte de su firma. */
@@ -254,6 +271,8 @@ export interface MethodInput {
   name?: string
   return_type?: string
   visibility?: Visibility
+  is_static?: boolean
+  is_abstract?: boolean
   order_index?: number
 }
 
@@ -482,6 +501,10 @@ export interface ExchangeDocument {
         is_nullable: boolean
         is_unique: boolean
         default_value: string | null
+        is_static?: boolean
+        is_derived?: boolean
+        is_read_only?: boolean
+        multiplicity?: string | null
         order_index: number
       }[]
       methods: {
@@ -489,6 +512,8 @@ export interface ExchangeDocument {
         name: string
         return_type: string
         visibility: string
+        is_static?: boolean
+        is_abstract?: boolean
         order_index: number
         parameters: { name: string; type: string; order_index: number }[]
       }[]

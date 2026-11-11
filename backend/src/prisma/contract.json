@@ -1996,6 +1996,13 @@
                   "kind": "scalar"
                 }
               },
+              "isDerived": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "isNullable": {
                 "nullable": false,
                 "type": {
@@ -2010,11 +2017,35 @@
                   "kind": "scalar"
                 }
               },
+              "isReadOnly": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "isStatic": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "isUnique": {
                 "nullable": false,
                 "type": {
                   "codecId": "pg/bool@1",
                   "kind": "scalar"
+                }
+              },
+              "multiplicity": {
+                "nullable": true,
+                "type": {
+                  "codecId": "sql/varchar@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "length": 10
+                  }
                 }
               },
               "name": {
@@ -2087,14 +2118,26 @@
                 "id": {
                   "column": "id"
                 },
+                "isDerived": {
+                  "column": "is_derived"
+                },
                 "isNullable": {
                   "column": "is_nullable"
                 },
                 "isPrimaryKey": {
                   "column": "is_primary_key"
                 },
+                "isReadOnly": {
+                  "column": "is_read_only"
+                },
+                "isStatic": {
+                  "column": "is_static"
+                },
                 "isUnique": {
                   "column": "is_unique"
+                },
+                "multiplicity": {
+                  "column": "multiplicity"
                 },
                 "name": {
                   "column": "name"
@@ -2447,6 +2490,20 @@
                   "kind": "scalar"
                 }
               },
+              "isAbstract": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
+              "isStatic": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "name": {
                 "nullable": false,
                 "type": {
@@ -2528,6 +2585,12 @@
                 },
                 "id": {
                   "column": "id"
+                },
+                "isAbstract": {
+                  "column": "is_abstract"
+                },
+                "isStatic": {
+                  "column": "is_static"
                 },
                 "name": {
                   "column": "name"
@@ -4973,6 +5036,15 @@
                   "nativeType": "uuid",
                   "nullable": false
                 },
+                "is_derived": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "is_nullable": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -4991,6 +5063,24 @@
                   "nativeType": "bool",
                   "nullable": false
                 },
+                "is_read_only": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "is_static": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
                 "is_unique": {
                   "codecId": "pg/bool@1",
                   "default": {
@@ -4999,6 +5089,14 @@
                   },
                   "nativeType": "bool",
                   "nullable": false
+                },
+                "multiplicity": {
+                  "codecId": "sql/varchar@1",
+                  "nativeType": "character varying",
+                  "nullable": true,
+                  "typeParams": {
+                    "length": 10
+                  }
                 },
                 "name": {
                   "codecId": "sql/varchar@1",
@@ -5360,6 +5458,24 @@
                     "kind": "function"
                   },
                   "nativeType": "uuid",
+                  "nullable": false
+                },
+                "is_abstract": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
+                  "nullable": false
+                },
+                "is_static": {
+                  "codecId": "pg/bool@1",
+                  "default": {
+                    "kind": "literal",
+                    "value": false
+                  },
+                  "nativeType": "bool",
                   "nullable": false
                 },
                 "name": {
@@ -5997,7 +6113,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "f2c2904ce5c29032cb133dbad40aecab148754ab8c3372908691bd55eca88978"
+    "storageHash": "53d0ba4c84eefa00a8508f9d02782a1a01e2bac9081198cb0d7aeecbf360a8d6"
   },
   "capabilities": {
     "postgres": {

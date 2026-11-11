@@ -182,6 +182,7 @@ export class XmiService {
       const created = await this.classesService.createClass(userId, diagram.id, {
         name: umlClass.name,
         is_abstract: umlClass.isAbstract,
+        stereotype: umlClass.stereotype,
         visibility: umlClass.visibility,
         pos_x: position.posX,
         pos_y: position.posY,
@@ -199,6 +200,10 @@ export class XmiService {
           is_nullable: attribute.isNullable,
           is_unique: attribute.isUnique,
           default_value: attribute.defaultValue,
+          is_static: attribute.isStatic,
+          is_derived: attribute.isDerived,
+          is_read_only: attribute.isReadOnly,
+          multiplicity: attribute.multiplicity,
         });
         attributes += 1;
       }
@@ -295,6 +300,8 @@ export class XmiService {
         name: method.name,
         return_type: returnType,
         visibility: method.visibility,
+        is_static: method.isStatic,
+        is_abstract: method.isAbstract,
       });
       created += 1;
 

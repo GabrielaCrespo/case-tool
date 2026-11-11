@@ -273,6 +273,33 @@ export function validateDiagram(diagram: FullDiagramResponse): DiagramValidation
         });
       }
 
+      /*
+       * Notación UML 2.5. Son avisos y no errores: el diagrama es correcto en
+       * UML, pero el generador de CU07 traduce cada atributo de una entidad a
+       * una columna, y una colección no cabe en una columna.
+       */
+      if (persistent && attribute.multiplicity !== null && isMany(attribute.multiplicity)) {
+        add({
+          severity: 'warning',
+          code: 'ATTRIBUTE_COLLECTION_IN_ENTITY',
+          message: `${at}: tiene multiplicidad [${attribute.multiplicity}]; al generar el backend se guardará como una sola columna. Para una lista de valores conviene una clase aparte unida por una asociación.`,
+          element_type: 'ATTRIBUTE',
+          element_id: attribute.id,
+          class_id: umlClass.id,
+        });
+      }
+
+      if (attribute.is_derived && attribute.default_value !== null) {
+        add({
+          severity: 'warning',
+          code: 'DERIVED_ATTRIBUTE_WITH_DEFAULT',
+          message: `${at}: es derivado (se calcula a partir de otros), así que no debería tener valor inicial.`,
+          element_type: 'ATTRIBUTE',
+          element_id: attribute.id,
+          class_id: umlClass.id,
+        });
+      }
+
       if (!VISIBILITIES.includes(attribute.visibility as (typeof VISIBILITIES)[number])) {
         add({
           severity: 'error',
@@ -313,6 +340,34 @@ export function validateDiagram(diagram: FullDiagramResponse): DiagramValidation
     // ------------------------------------------------------------ métodos
     for (const method of umlClass.methods) {
       const at = `${where}, método ${method.name}`;
+
+      /*
+       * UML 2.5: una operación abstracta no tiene implementación, así que sólo
+       * puede estar en una clase abstracta o en una interfaz; y una operación
+       * estática pertenece a la clase, no se redefine, así que no puede ser
+       * abstracta a la vez.
+       */
+      if (method.is_abstract && !umlClass.is_abstract && umlClass.stereotype !== 'interface') {
+        add({
+          severity: 'warning',
+          code: 'ABSTRACT_METHOD_IN_CONCRETE_CLASS',
+          message: `${at}: es abstracto, pero la clase no lo es. En UML una clase con operaciones abstractas debe marcarse como abstracta.`,
+          element_type: 'METHOD',
+          element_id: method.id,
+          class_id: umlClass.id,
+        });
+      }
+
+      if (method.is_abstract && method.is_static) {
+        add({
+          severity: 'warning',
+          code: 'STATIC_ABSTRACT_METHOD',
+          message: `${at}: no puede ser estático y abstracto a la vez.`,
+          element_type: 'METHOD',
+          element_id: method.id,
+          class_id: umlClass.id,
+        });
+      }
 
       const methodProblem = identifierProblem(method.name);
       if (methodProblem !== null) {

@@ -1,4 +1,10 @@
-import type { UmlMethod, UmlRelationship, Visibility } from '../../api/types'
+import type {
+  UmlAttribute,
+  UmlClassFull,
+  UmlMethod,
+  UmlRelationship,
+  Visibility,
+} from '../../api/types'
 import type { RelationshipType } from '../../api/types'
 
 /**
@@ -316,6 +322,17 @@ export function methodSignature(method: UmlMethod): string {
   return `${method.name}(${parameters}): ${method.return_type}`
 }
 
+/**
+ * Lo que UML 2.5 escribe después del tipo de un atributo:
+ * «[0..*]» si tiene multiplicidad y «{readOnly}» si no cambia.
+ */
+export function attributeSuffix(attribute: UmlAttribute): string {
+  return (
+    (attribute.multiplicity === null ? '' : ` [${attribute.multiplicity}]`) +
+    (attribute.is_read_only ? ' {readOnly}' : '')
+  )
+}
+
 /** Multiplicidades que significan «muchos». */
 export function isMany(multiplicity: string | null): boolean {
   return multiplicity !== null && (multiplicity === '*' || multiplicity.endsWith('..*'))
@@ -376,3 +393,37 @@ export const LIMITS = {
   role: 100,
   multiplicity: 10,
 } as const
+
+/** Hasta dónde crece sola una entidad para que su texto no se corte. */
+const MAX_AUTO_CLASS_WIDTH = 340
+/** Ancho de un carácter de la fuente monoespaciada de 11,5 px. */
+const MONO_CHAR_WIDTH = 7
+/** Lo que ocupa una línea además del texto: márgenes y la columna «PK»/«U». */
+const LINE_CHROME = 52
+
+/**
+ * Ancho de una entidad sin tamaño manual. Antes era siempre 224 px, y la
+ * notación UML 2.5 —«etiquetas: String [0..*]», «codigo: String {readOnly}»—
+ * quedaba cortada con «…». Ahora crece lo justo para la línea más larga, con
+ * un tope para no tapar a las vecinas; más allá, se redimensiona a mano.
+ */
+export function autoClassWidth(umlClass: UmlClassFull, minWidth: number): number {
+  const literal = umlClass.stereotype === 'enumeration'
+  const lines = [
+    ...umlClass.attributes.map((attribute) =>
+      literal
+        ? attribute.name
+        : `+ ${attribute.is_derived ? '/' : ''}${attribute.name}` +
+          (attribute.data_type === null ? '' : `: ${attribute.data_type}`) +
+          attributeSuffix(attribute) +
+          (attribute.is_nullable ? '' : ' *'),
+    ),
+    ...umlClass.methods.map((method) => `+ ${methodSignature(method)}`),
+  ]
+  const longest = Math.max(0, ...lines.map((line) => line.length))
+
+  return Math.min(
+    MAX_AUTO_CLASS_WIDTH,
+    Math.max(minWidth, Math.ceil(LINE_CHROME + longest * MONO_CHAR_WIDTH)),
+  )
+}

@@ -230,6 +230,10 @@ export function describeDiagram(
           attribute.is_nullable ? null : 'obligatorio',
           attribute.is_unique ? 'único' : null,
           attribute.default_value === null ? null : `por defecto ${attribute.default_value}`,
+          attribute.multiplicity === null ? null : `multiplicidad [${attribute.multiplicity}]`,
+          attribute.is_static ? 'estático' : null,
+          attribute.is_derived ? 'derivado' : null,
+          attribute.is_read_only ? 'sólo lectura' : null,
         ].filter((detail) => detail !== null);
         lines.push(`    · ${attribute.name}: ${details.join(', ')}`);
       }
@@ -237,7 +241,14 @@ export function describeDiagram(
         const parameters = method.parameters
           .map((parameter) => `${parameter.name}: ${parameter.data_type}`)
           .join(', ');
-        lines.push(`    · ${method.name}(${parameters}): ${method.return_type}`);
+        const methodTraits = [
+          method.is_static ? 'estático' : null,
+          method.is_abstract ? 'abstracto' : null,
+        ].filter((trait) => trait !== null);
+        lines.push(
+          `    · ${method.name}(${parameters}): ${method.return_type}` +
+            (methodTraits.length > 0 ? ` (${methodTraits.join(', ')})` : ''),
+        );
       }
     }
   }
