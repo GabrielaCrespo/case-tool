@@ -19,6 +19,7 @@ import {
   assertNotPrimaryKeyName,
   isUniqueViolation,
   optionalDataType,
+  optionalMultiplicity,
   optionalSize,
   optionalStereotype,
   optionalVarchar,
@@ -76,6 +77,10 @@ export interface AttributeInput {
   is_nullable?: unknown;
   is_unique?: unknown;
   default_value?: unknown;
+  is_static?: unknown;
+  is_derived?: unknown;
+  is_read_only?: unknown;
+  multiplicity?: unknown;
   order_index?: unknown;
 }
 
@@ -83,6 +88,8 @@ export interface MethodInput {
   name?: unknown;
   return_type?: unknown;
   visibility?: unknown;
+  is_static?: unknown;
+  is_abstract?: unknown;
   order_index?: unknown;
 }
 
@@ -90,6 +97,49 @@ export interface ParameterInput {
   name?: unknown;
   data_type?: unknown;
   order_index?: unknown;
+}
+
+/** Notación UML 2.5 de un atributo: sólo los campos que llegaron. */
+interface UmlAttributeNotation {
+  isStatic?: boolean;
+  isDerived?: boolean;
+  isReadOnly?: boolean;
+  multiplicity?: Varchar<10> | null;
+}
+
+function attributeNotation(data: AttributeInput | undefined): UmlAttributeNotation {
+  const notation: UmlAttributeNotation = {};
+  if (data?.is_static !== undefined) {
+    notation.isStatic = requiredBoolean(data.is_static, 'is_static');
+  }
+  if (data?.is_derived !== undefined) {
+    notation.isDerived = requiredBoolean(data.is_derived, 'is_derived');
+  }
+  if (data?.is_read_only !== undefined) {
+    notation.isReadOnly = requiredBoolean(data.is_read_only, 'is_read_only');
+  }
+  // null o "" vuelven a la multiplicidad de siempre, [1].
+  if (data?.multiplicity !== undefined) {
+    notation.multiplicity = optionalMultiplicity(data.multiplicity, 'multiplicity');
+  }
+  return notation;
+}
+
+/** Notación UML 2.5 de una operación: sólo los campos que llegaron. */
+interface UmlMethodNotation {
+  isStatic?: boolean;
+  isAbstract?: boolean;
+}
+
+function methodNotation(data: MethodInput | undefined): UmlMethodNotation {
+  const notation: UmlMethodNotation = {};
+  if (data?.is_static !== undefined) {
+    notation.isStatic = requiredBoolean(data.is_static, 'is_static');
+  }
+  if (data?.is_abstract !== undefined) {
+    notation.isAbstract = requiredBoolean(data.is_abstract, 'is_abstract');
+  }
+  return notation;
 }
 
 /**
@@ -293,7 +343,7 @@ export class ClassesService {
       isNullable?: boolean;
       isUnique?: boolean;
       orderIndex: number;
-    } = {
+    } & UmlAttributeNotation = {
       classId,
       name,
       dataType,
@@ -312,6 +362,7 @@ export class ClassesService {
     if (data?.is_unique !== undefined) {
       create.isUnique = requiredBoolean(data.is_unique, 'is_unique');
     }
+    Object.assign(create, attributeNotation(data));
 
     const attribute = await this.createUnique(
       () => db.orm.public.UmlAttributes.create(create),
@@ -340,7 +391,7 @@ export class ClassesService {
       isNullable?: boolean;
       isUnique?: boolean;
       orderIndex?: number;
-    } = {};
+    } & UmlAttributeNotation = { ...attributeNotation(data) };
     if (data?.name !== undefined) {
       changes.name = requiredAttributeName(data.name, 'name', NAME_MAX_LENGTH);
     }
@@ -374,6 +425,10 @@ export class ClassesService {
       'is_nullable',
       'is_unique',
       'default_value',
+      'is_static',
+      'is_derived',
+      'is_read_only',
+      'multiplicity',
       'order_index',
     ]);
 
@@ -435,7 +490,8 @@ export class ClassesService {
       returnType?: Varchar<typeof TYPE_MAX_LENGTH>;
       visibility?: Visibility;
       orderIndex: number;
-    } = {
+    } & UmlMethodNotation = {
+      ...methodNotation(data),
       classId,
       name: this.nameOrDefault(
         data?.name,
@@ -478,7 +534,7 @@ export class ClassesService {
       returnType?: Varchar<typeof TYPE_MAX_LENGTH>;
       visibility?: Visibility;
       orderIndex?: number;
-    } = {};
+    } & UmlMethodNotation = { ...methodNotation(data) };
     if (data?.name !== undefined) {
       changes.name = requiredIdentifier(data.name, 'name', NAME_MAX_LENGTH);
     }
@@ -496,7 +552,14 @@ export class ClassesService {
     if (data?.order_index !== undefined) {
       changes.orderIndex = requiredInteger(data.order_index, 'order_index');
     }
-    assertHasChanges(changes, ['name', 'return_type', 'visibility', 'order_index']);
+    assertHasChanges(changes, [
+      'name',
+      'return_type',
+      'visibility',
+      'is_static',
+      'is_abstract',
+      'order_index',
+    ]);
 
     const updated = await db.orm.public.UmlMethods.where({ id: methodId }).update(changes);
 

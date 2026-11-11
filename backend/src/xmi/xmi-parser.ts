@@ -49,6 +49,12 @@ export interface ParsedAttribute {
   isNullable: boolean;
   isUnique: boolean;
   defaultValue: string | null;
+  /** Notación UML 2.5. Un archivo que no las declara las deja en false/null. */
+  isStatic: boolean;
+  isDerived: boolean;
+  isReadOnly: boolean;
+  /** Sólo la de una colección (límite superior distinto de 1); si no, null. */
+  multiplicity: string | null;
 }
 
 export interface ParsedParameter {
@@ -61,6 +67,8 @@ export interface ParsedMethod {
   /** null = el archivo no declara retorno; el servicio usará «void». */
   returnType: string | null;
   visibility: string;
+  isStatic: boolean;
+  isAbstract: boolean;
   parameters: ParsedParameter[];
 }
 
@@ -69,6 +77,11 @@ export interface ParsedClass {
   id: string;
   name: string;
   isAbstract: boolean;
+  /**
+   * Uno de los estereotipos del catálogo (entity, interface, service,
+   * enumeration), o null. Uno que no esté en el catálogo se ignora.
+   */
+  stereotype: string | null;
   visibility: string;
   attributes: ParsedAttribute[];
   methods: ParsedMethod[];
@@ -110,6 +123,9 @@ type Node = Record<string, unknown>;
 
 /** Atributos XML que fast-xml-parser deja con este prefijo. */
 const ATTR = '@_';
+
+/** Los de uml-catalog.ts: otro estereotipo no se podría guardar. */
+const KNOWN_STEREOTYPES = new Set(['entity', 'interface', 'service', 'enumeration']);
 
 /**
  * Se quitan los prefijos de espacio de nombres al leer: así `uml:Class`,
@@ -286,7 +302,9 @@ class Collector {
     // Los miembros cuelgan de la clase en XMI 2.x y de `Classifier.feature`
     // en XMI 1.1; `members` mira en los dos sitios.
     const attributes: ParsedAttribute[] = [];
-    for (const raw of members(element, 'ownedAttribute', 'Attribute')) {
+    // Los valores de una enumeración de XMI 2.x son `ownedLiteral`; se leen
+    // como atributos sin tipo, que es como el modelo guarda un literal.
+    for (const raw of members(element, 'ownedAttribute', 'Attribute', 'ownedLiteral')) {
       const attribute = this.readAttribute(raw);
       if (attribute !== null) attributes.push(attribute);
     }
@@ -312,6 +330,7 @@ class Collector {
       // Una interfaz no es abstracta por serlo, pero en nuestro modelo se
       // representa con el estereotipo; el servicio lo traduce.
       isAbstract: element[`${ATTR}isAbstract`] === 'true' || kind === 'Interface',
+      stereotype: this.stereotypeOf(element, kind),
       visibility: toVisibility(text(element[`${ATTR}visibility`]) ?? undefined, 'public'),
       attributes,
       methods,
@@ -356,10 +375,15 @@ class Collector {
       }
     }
 
+    const tags = this.taggedValues(element);
+
     return {
       name,
       returnType,
       visibility: toVisibility(text(element[`${ATTR}visibility`]) ?? undefined, 'public'),
+      // XMI 2.x lo dice con isStatic; UML 1.x, con ownerScope="classifier".
+      isStatic: isStaticFeature(element, tags),
+      isAbstract: element[`${ATTR}isAbstract`] === 'true' || isTrueTag(tags.get('abstract')),
       parameters,
     };
   }
@@ -391,6 +415,7 @@ class Collector {
     if (element[`${ATTR}association`] !== undefined) return null;
 
     const bounds = boundsOf(element);
+    const tags = this.taggedValues(element);
 
     return {
       id: idOf(element),
@@ -402,6 +427,17 @@ class Collector {
       isNullable: bounds.lower === undefined ? true : bounds.lower === '0',
       isUnique: element[`${ATTR}isUnique`] === 'true',
       defaultValue: valueOf(element.defaultValue),
+      isStatic: isStaticFeature(element, tags),
+      isDerived: element[`${ATTR}isDerived`] === 'true' || isTrueTag(tags.get('derived')),
+      // UML 1.x dice «frozen» a lo que UML 2 llama isReadOnly.
+      isReadOnly:
+        element[`${ATTR}isReadOnly`] === 'true' ||
+        text(element[`${ATTR}changeable`]) === 'frozen',
+      multiplicity: collectionMultiplicity(
+        bounds.upper === undefined && bounds.lower === undefined
+          ? { lower: tags.get('lowerBound'), upper: tags.get('upperBound') }
+          : bounds,
+      ),
     };
   }
 
@@ -459,6 +495,26 @@ class Collector {
   }
 
   /** Un hijo del elemento, buscando también por su nombre sin prefijo. */
+  /**
+   * El estereotipo de una clase. Puede venir de tres sitios: el tipo del
+   * elemento en XMI 2.x (`uml:Interface`, `uml:Enumeration`), el bloque
+   * `ModelElement.stereotype` de UML 1.x, o la etiqueta «stereotype» de EA,
+   * que es donde lo escribe nuestra propia exportación.
+   */
+  private stereotypeOf(element: Node, kind: string): string | null {
+    if (kind === 'Interface') return 'interface';
+    if (kind === 'Enumeration') return 'enumeration';
+
+    const block = this.child(element, 'ModelElement.stereotype');
+    const first = block === null ? undefined : asList(block.Stereotype)[0];
+    const declared =
+      this.taggedValues(element).get('stereotype') ??
+      (typeof first === 'object' && first !== null ? text((first as Node)[`${ATTR}name`]) : null);
+
+    const name = declared?.trim().toLowerCase() ?? null;
+    return name !== null && KNOWN_STEREOTYPES.has(name) ? name : null;
+  }
+
   private child(element: Node, key: string): Node | null {
     const value = element[key];
 
@@ -885,6 +941,38 @@ function multiplicityOf(end: Node): string | null {
   }
 
   return fromBounds(boundsOf(end));
+}
+
+/** Etiqueta de EA con valor verdadero: EA escribe «1» o «true» según la versión. */
+function isTrueTag(value: string | undefined): boolean {
+  return value === '1' || value?.toLowerCase() === 'true';
+}
+
+/** Miembro de la clase y no de cada objeto: subrayado en UML. */
+function isStaticFeature(element: Node, tags: Map<string, string>): boolean {
+  return (
+    element[`${ATTR}isStatic`] === 'true' ||
+    text(element[`${ATTR}ownerScope`]) === 'classifier' ||
+    isTrueTag(tags.get('static'))
+  );
+}
+
+/**
+ * La multiplicidad de un atributo, sólo si es una colección («[0..*]»,
+ * «[1..*]», «[2..5]»). El límite inferior de un atributo simple ya se lee
+ * como «admite nulos», y EA escribe [1..1] en todos: guardarlo como
+ * multiplicidad llenaría el diagrama de corchetes que nadie dibujó. Lo que no
+ * tenga forma de multiplicidad se descarta, para que la importación no falle.
+ */
+function collectionMultiplicity(bounds: { lower?: string; upper?: string }): string | null {
+  const multiplicity = fromBounds(bounds);
+  if (multiplicity === null) return null;
+  if (!/^(\*|\d+|\d+\.\.(\d+|\*))$/.test(multiplicity)) return null;
+
+  const upper = multiplicity.split('..').pop();
+  if (upper === '1' || upper === '0') return null;
+
+  return multiplicity;
 }
 
 function boundsOf(element: Node): { lower?: string; upper?: string } {

@@ -248,6 +248,12 @@ namespace public {
     isNullable   Boolean           @default(true) @map("is_nullable")
     isUnique     Boolean           @default(false) @map("is_unique")
     defaultValue VarChar(255)?     @map("default_value")
+    // Notación UML 2.5: subrayado, «/», {readOnly} y [multiplicidad].
+    // NULL en la multiplicidad = [1], que UML no escribe.
+    isStatic     Boolean           @default(false) @map("is_static")
+    isDerived    Boolean           @default(false) @map("is_derived")
+    isReadOnly   Boolean           @default(false) @map("is_read_only")
+    multiplicity VarChar(10)?
     orderIndex   Int               @default(0) @map("order_index")
     createdAt    TimestamptzString @default(now()) @map("created_at")
     updatedAt    TimestamptzString @default(now()) @map("updated_at")
@@ -265,6 +271,9 @@ namespace public {
     name       VarChar(150)
     returnType VarChar(150)           @default("void") @map("return_type")
     visibility pg.enum(UmlVisibility) @default("public")
+    // Notación UML 2.5: estática = subrayada, abstracta = en cursiva.
+    isStatic   Boolean                @default(false) @map("is_static")
+    isAbstract Boolean                @default(false) @map("is_abstract")
     orderIndex Int                    @default(0) @map("order_index")
     createdAt  TimestamptzString      @default(now()) @map("created_at")
     class      UmlClasses             @relation(fields:[classId], references:[id], onDelete: Cascade, map: "uml_methods_class_id_fkey")

@@ -28,6 +28,10 @@ function attribute(name: string, dataType: string | null) {
     is_nullable: true,
     is_unique: false,
     default_value: null,
+    is_static: false,
+    is_derived: false,
+    is_read_only: false,
+    multiplicity: null,
     order_index: 0,
     ...TIMES,
   };

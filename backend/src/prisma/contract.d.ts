@@ -34,7 +34,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'f2c2904ce5c29032cb133dbad40aecab148754ab8c3372908691bd55eca88978'>;
+  StorageHashBase<'53d0ba4c84eefa00a8508f9d02782a1a01e2bac9081198cb0d7aeecbf360a8d6'>;
 export type ExecutionHash = ExecutionHashBase<string>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
@@ -378,6 +378,10 @@ export type FieldOutputTypes = {
       readonly isNullable: CodecTypes['pg/bool@1']['output'];
       readonly isUnique: CodecTypes['pg/bool@1']['output'];
       readonly defaultValue: Varchar<255> | null;
+      readonly isStatic: CodecTypes['pg/bool@1']['output'];
+      readonly isDerived: CodecTypes['pg/bool@1']['output'];
+      readonly isReadOnly: CodecTypes['pg/bool@1']['output'];
+      readonly multiplicity: Varchar<10> | null;
       readonly orderIndex: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -410,6 +414,8 @@ export type FieldOutputTypes = {
       readonly name: Varchar<150>;
       readonly returnType: Varchar<150>;
       readonly visibility: 'public' | 'private' | 'protected' | 'package';
+      readonly isStatic: CodecTypes['pg/bool@1']['output'];
+      readonly isAbstract: CodecTypes['pg/bool@1']['output'];
       readonly orderIndex: CodecTypes['pg/int4@1']['output'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     };
@@ -597,6 +603,10 @@ export type FieldInputTypes = {
       readonly isNullable: CodecTypes['pg/bool@1']['input'];
       readonly isUnique: CodecTypes['pg/bool@1']['input'];
       readonly defaultValue: CodecTypes['sql/varchar@1']['input'] | null;
+      readonly isStatic: CodecTypes['pg/bool@1']['input'];
+      readonly isDerived: CodecTypes['pg/bool@1']['input'];
+      readonly isReadOnly: CodecTypes['pg/bool@1']['input'];
+      readonly multiplicity: CodecTypes['sql/varchar@1']['input'] | null;
       readonly orderIndex: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly updatedAt: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -629,6 +639,8 @@ export type FieldInputTypes = {
       readonly name: CodecTypes['sql/varchar@1']['input'];
       readonly returnType: CodecTypes['sql/varchar@1']['input'];
       readonly visibility: 'public' | 'private' | 'protected' | 'package';
+      readonly isStatic: CodecTypes['pg/bool@1']['input'];
+      readonly isAbstract: CodecTypes['pg/bool@1']['input'];
       readonly orderIndex: CodecTypes['pg/int4@1']['input'];
       readonly createdAt: CodecTypes['pg/timestamptz-string@1']['input'];
     };
@@ -812,9 +824,13 @@ export type StorageColumnTypes = {
       readonly data_type: Varchar<50> | null;
       readonly default_value: Varchar<255> | null;
       readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly is_derived: CodecTypes['pg/bool@1']['output'];
       readonly is_nullable: CodecTypes['pg/bool@1']['output'];
       readonly is_primary_key: CodecTypes['pg/bool@1']['output'];
+      readonly is_read_only: CodecTypes['pg/bool@1']['output'];
+      readonly is_static: CodecTypes['pg/bool@1']['output'];
       readonly is_unique: CodecTypes['pg/bool@1']['output'];
+      readonly multiplicity: Varchar<10> | null;
       readonly name: Varchar<150>;
       readonly order_index: CodecTypes['pg/int4@1']['output'];
       readonly updated_at: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -846,6 +862,8 @@ export type StorageColumnTypes = {
       readonly class_id: CodecTypes['pg/uuid@1']['output'];
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['output'];
       readonly id: CodecTypes['pg/uuid@1']['output'];
+      readonly is_abstract: CodecTypes['pg/bool@1']['output'];
+      readonly is_static: CodecTypes['pg/bool@1']['output'];
       readonly name: Varchar<150>;
       readonly order_index: CodecTypes['pg/int4@1']['output'];
       readonly return_type: Varchar<150>;
@@ -1031,9 +1049,13 @@ export type StorageColumnInputTypes = {
       readonly data_type: CodecTypes['sql/varchar@1']['input'] | null;
       readonly default_value: CodecTypes['sql/varchar@1']['input'] | null;
       readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly is_derived: CodecTypes['pg/bool@1']['input'];
       readonly is_nullable: CodecTypes['pg/bool@1']['input'];
       readonly is_primary_key: CodecTypes['pg/bool@1']['input'];
+      readonly is_read_only: CodecTypes['pg/bool@1']['input'];
+      readonly is_static: CodecTypes['pg/bool@1']['input'];
       readonly is_unique: CodecTypes['pg/bool@1']['input'];
+      readonly multiplicity: CodecTypes['sql/varchar@1']['input'] | null;
       readonly name: CodecTypes['sql/varchar@1']['input'];
       readonly order_index: CodecTypes['pg/int4@1']['input'];
       readonly updated_at: CodecTypes['pg/timestamptz-string@1']['input'];
@@ -1065,6 +1087,8 @@ export type StorageColumnInputTypes = {
       readonly class_id: CodecTypes['pg/uuid@1']['input'];
       readonly created_at: CodecTypes['pg/timestamptz-string@1']['input'];
       readonly id: CodecTypes['pg/uuid@1']['input'];
+      readonly is_abstract: CodecTypes['pg/bool@1']['input'];
+      readonly is_static: CodecTypes['pg/bool@1']['input'];
       readonly name: CodecTypes['sql/varchar@1']['input'];
       readonly order_index: CodecTypes['pg/int4@1']['input'];
       readonly return_type: CodecTypes['sql/varchar@1']['input'];
@@ -1328,6 +1352,10 @@ export namespace Models {
     isNullable: CodecTypes['pg/bool@1']['output'];
     isUnique: CodecTypes['pg/bool@1']['output'];
     defaultValue: Varchar<255> | null;
+    isStatic: CodecTypes['pg/bool@1']['output'];
+    isDerived: CodecTypes['pg/bool@1']['output'];
+    isReadOnly: CodecTypes['pg/bool@1']['output'];
+    multiplicity: Varchar<10> | null;
     orderIndex: CodecTypes['pg/int4@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     updatedAt: CodecTypes['pg/timestamptz-string@1']['output'];
@@ -1340,6 +1368,8 @@ export namespace Models {
     name: Varchar<150>;
     returnType: Varchar<150>;
     visibility: 'public' | 'private' | 'protected' | 'package';
+    isStatic: CodecTypes['pg/bool@1']['output'];
+    isAbstract: CodecTypes['pg/bool@1']['output'];
     orderIndex: CodecTypes['pg/int4@1']['output'];
     createdAt: CodecTypes['pg/timestamptz-string@1']['output'];
     class: public_UmlClasses;
@@ -2714,6 +2744,39 @@ type ContractBase = Omit<
                   readonly nullable: true;
                   readonly typeParams: { readonly length: 255 };
                 };
+                readonly is_static: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly is_derived: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly is_read_only: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly multiplicity: {
+                  readonly nativeType: 'character varying';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 10 };
+                };
                 readonly order_index: {
                   readonly nativeType: 'int4';
                   readonly codecId: 'pg/int4@1';
@@ -3005,6 +3068,24 @@ type ContractBase = Omit<
                     readonly value: DefaultLiteralValue<'pg/enum@1', 'public'>;
                   };
                   readonly typeParams: { readonly typeName: 'uml_visibility' };
+                };
+                readonly is_static: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
+                };
+                readonly is_abstract: {
+                  readonly nativeType: 'bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', false>;
+                  };
                 };
                 readonly order_index: {
                   readonly nativeType: 'int4';
@@ -4848,6 +4929,26 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly length: 255 };
                 };
               };
+              readonly isStatic: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly isDerived: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly isReadOnly: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly multiplicity: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 10 };
+                };
+              };
               readonly orderIndex: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -4894,6 +4995,10 @@ type ContractBase = Omit<
                 readonly isNullable: { readonly column: 'is_nullable' };
                 readonly isUnique: { readonly column: 'is_unique' };
                 readonly defaultValue: { readonly column: 'default_value' };
+                readonly isStatic: { readonly column: 'is_static' };
+                readonly isDerived: { readonly column: 'is_derived' };
+                readonly isReadOnly: { readonly column: 'is_read_only' };
+                readonly multiplicity: { readonly column: 'multiplicity' };
                 readonly orderIndex: { readonly column: 'order_index' };
                 readonly createdAt: { readonly column: 'created_at' };
                 readonly updatedAt: { readonly column: 'updated_at' };
@@ -5145,6 +5250,14 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly typeName: 'uml_visibility' };
                 };
               };
+              readonly isStatic: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
+              readonly isAbstract: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly orderIndex: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
@@ -5191,6 +5304,8 @@ type ContractBase = Omit<
                 readonly name: { readonly column: 'name' };
                 readonly returnType: { readonly column: 'return_type' };
                 readonly visibility: { readonly column: 'visibility' };
+                readonly isStatic: { readonly column: 'is_static' };
+                readonly isAbstract: { readonly column: 'is_abstract' };
                 readonly orderIndex: { readonly column: 'order_index' };
                 readonly createdAt: { readonly column: 'created_at' };
               };

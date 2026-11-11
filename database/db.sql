@@ -191,6 +191,14 @@ CREATE TABLE uml_attributes (
     is_nullable     BOOLEAN NOT NULL DEFAULT TRUE,
     is_unique       BOOLEAN NOT NULL DEFAULT FALSE,
     default_value   VARCHAR(255),
+    -- Notación UML 2.5 de la propiedad: «static» se dibuja subrayado, «derived»
+    -- con «/» delante del nombre, «read_only» con {readOnly} al final, y la
+    -- multiplicidad entre corchetes tras el tipo: «telefonos : String [0..*]».
+    -- NULL en la multiplicidad = la de siempre, [1], que UML no escribe.
+    is_static       BOOLEAN NOT NULL DEFAULT FALSE,
+    is_derived      BOOLEAN NOT NULL DEFAULT FALSE,
+    is_read_only    BOOLEAN NOT NULL DEFAULT FALSE,
+    multiplicity    VARCHAR(10),
     order_index     INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -211,6 +219,10 @@ CREATE TABLE uml_methods (
     -- uml_classes.name admite 150 caracteres.
     return_type     VARCHAR(150) NOT NULL DEFAULT 'void',
     visibility      uml_visibility NOT NULL DEFAULT 'public',
+    -- Notación UML 2.5 de la operación: «static» se dibuja subrayada y
+    -- «abstract» en cursiva (una operación sin implementación).
+    is_static       BOOLEAN NOT NULL DEFAULT FALSE,
+    is_abstract     BOOLEAN NOT NULL DEFAULT FALSE,
     order_index     INTEGER NOT NULL DEFAULT 0,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );

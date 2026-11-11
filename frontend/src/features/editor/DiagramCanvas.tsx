@@ -18,7 +18,12 @@ import { useAuthStore } from '../../store/auth'
 import { useDiagramStore } from '../../store/diagram'
 import { ASSOCIATION_CLASS_TOOL, isLinkTool, isRelationshipTool } from './tools'
 import type { Tool } from './tools'
-import { ASSOCIATION_CLASS_META, RELATIONSHIP_META, associationClassLinks } from './uml'
+import {
+  ASSOCIATION_CLASS_META,
+  RELATIONSHIP_META,
+  associationClassLinks,
+  autoClassWidth,
+} from './uml'
 import { DEFAULT_CLASS_HEIGHT, DEFAULT_CLASS_WIDTH, UmlClassNode } from './UmlClassNode'
 import type { UmlClassNodeType } from './UmlClassNode'
 import { UmlRelationEdge } from './UmlRelationEdge'
@@ -85,7 +90,7 @@ function toNode(
     // cambio, sólo se fija cuando alguien la redimensionó a mano — si no,
     // queda `undefined` para que siga creciendo sola según su contenido,
     // igual que hacía antes de poder redimensionarse.
-    width: umlClass.width ?? DEFAULT_CLASS_WIDTH,
+    width: umlClass.width ?? autoClassWidth(umlClass, DEFAULT_CLASS_WIDTH),
     height: umlClass.height ?? undefined,
     data: { umlClass },
     selected: umlClass.id === selectedId,

@@ -44,6 +44,11 @@ export interface ExchangeAttribute {
   is_nullable: boolean;
   is_unique: boolean;
   default_value: string | null;
+  /** Notación UML 2.5. Opcionales al leer: un archivo anterior no las trae. */
+  is_static: boolean;
+  is_derived: boolean;
+  is_read_only: boolean;
+  multiplicity: string | null;
   order_index: number;
 }
 
@@ -58,6 +63,8 @@ export interface ExchangeMethod {
   name: string;
   return_type: string;
   visibility: string;
+  is_static: boolean;
+  is_abstract: boolean;
   order_index: number;
   parameters: ExchangeParameter[];
 }
@@ -144,6 +151,10 @@ export class DiagramExchangeService {
             is_nullable: attribute.is_nullable,
             is_unique: attribute.is_unique,
             default_value: attribute.default_value,
+            is_static: attribute.is_static,
+            is_derived: attribute.is_derived,
+            is_read_only: attribute.is_read_only,
+            multiplicity: attribute.multiplicity,
             order_index: attribute.order_index,
           })),
           methods: umlClass.methods.map((method) => ({
@@ -151,6 +162,8 @@ export class DiagramExchangeService {
             name: method.name,
             return_type: method.return_type,
             visibility: method.visibility,
+            is_static: method.is_static,
+            is_abstract: method.is_abstract,
             order_index: method.order_index,
             parameters: method.parameters.map((parameter) => ({
               name: parameter.name,
@@ -240,6 +253,10 @@ export class DiagramExchangeService {
           is_nullable: attribute.is_nullable,
           is_unique: attribute.is_unique,
           default_value: attribute.default_value,
+          is_static: attribute.is_static,
+          is_derived: attribute.is_derived,
+          is_read_only: attribute.is_read_only,
+          multiplicity: attribute.multiplicity,
         });
       }
 
@@ -248,6 +265,8 @@ export class DiagramExchangeService {
           name: method.name,
           return_type: method.return_type,
           visibility: method.visibility,
+          is_static: method.is_static,
+          is_abstract: method.is_abstract,
         });
 
         for (const parameter of method.parameters) {
@@ -412,6 +431,10 @@ export class DiagramExchangeService {
       is_nullable: attribute.is_nullable !== false,
       is_unique: attribute.is_unique === true,
       default_value: this.text(attribute.default_value),
+      is_static: attribute.is_static === true,
+      is_derived: attribute.is_derived === true,
+      is_read_only: attribute.is_read_only === true,
+      multiplicity: this.text(attribute.multiplicity),
       order_index: this.number(attribute.order_index) ?? order,
     };
   }
@@ -431,6 +454,8 @@ export class DiagramExchangeService {
       name,
       return_type: this.text(method.return_type) ?? 'void',
       visibility: this.text(method.visibility) ?? 'public',
+      is_static: method.is_static === true,
+      is_abstract: method.is_abstract === true,
       order_index: this.number(method.order_index) ?? order,
       parameters: rawParameters.map((parameter, position) => {
         const record = this.record(parameter, `${where} tiene un parámetro que no es un objeto.`);

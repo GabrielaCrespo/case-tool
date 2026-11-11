@@ -44,6 +44,14 @@ export interface AttributeResponse {
   is_nullable: boolean;
   is_unique: boolean;
   default_value: string | null;
+  /** UML 2.5: se dibuja subrayado. */
+  is_static: boolean;
+  /** UML 2.5: «/» delante del nombre; su valor se calcula a partir de otros. */
+  is_derived: boolean;
+  /** UML 2.5: {readOnly} al final. */
+  is_read_only: boolean;
+  /** UML 2.5: «[0..*]» tras el tipo. null = [1], que no se escribe. */
+  multiplicity: string | null;
   order_index: number;
   created_at: string;
   updated_at: string;
@@ -66,6 +74,10 @@ export interface MethodResponse {
   name: string;
   return_type: string;
   visibility: string;
+  /** UML 2.5: se dibuja subrayada. */
+  is_static: boolean;
+  /** UML 2.5: se dibuja en cursiva; no tiene implementación. */
+  is_abstract: boolean;
   order_index: number;
   created_at: string;
   parameters: ParameterResponse[];
@@ -391,6 +403,10 @@ export class DiagramsService {
       is_nullable: attribute.isNullable,
       is_unique: attribute.isUnique,
       default_value: attribute.defaultValue,
+      is_static: attribute.isStatic,
+      is_derived: attribute.isDerived,
+      is_read_only: attribute.isReadOnly,
+      multiplicity: attribute.multiplicity,
       order_index: attribute.orderIndex,
       created_at: new Date(attribute.createdAt).toISOString(),
       updated_at: new Date(attribute.updatedAt).toISOString(),
@@ -408,6 +424,8 @@ export class DiagramsService {
       name: method.name,
       return_type: method.returnType,
       visibility: method.visibility,
+      is_static: method.isStatic,
+      is_abstract: method.isAbstract,
       order_index: method.orderIndex,
       created_at: new Date(method.createdAt).toISOString(),
       parameters: parameters.map((parameter) => this.toParameterResponse(parameter)),
